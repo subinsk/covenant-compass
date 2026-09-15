@@ -1,0 +1,258 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  LENDER_ADMIN
+  LENDER_USER
+  BORROWER_USER
+}
+
+enum OrgType {
+  LENDER
+  BORROWER
+}
+
+enum FacilityStatus {
+  ACTIVE
+  MATURED
+  DEFAULTED
+}
+
+enum CovenantType {
+  FINANCIAL
+  REPORTING
+  GENERAL
+  ESG
+}
+
+enum Frequency {
+  ONE_TIME
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+  EVENT_DRIVEN
+}
+
+enum OwnerRole {
+  LENDER
+  BORROWER
+  AGENT
+}
+
+enum Importance {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum OccurrenceStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+  WAIVED
+}
+
+enum RagStatus {
+  GREEN
+  AMBER
+  RED
+}
+
+enum DocumentType {
+  FINANCIAL_STATEMENT
+  CERTIFICATE
+  WAIVER
+  OTHER
+}
+
+enum NotificationType {
+  UPCOMING_DUE
+  OVERDUE
+  BREACH
+  REMINDER
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum EntityType {
+  FACILITY
+  COVENANT
+  OCCURRENCE
+  DOCUMENT
+  FINANCIAL_METRIC
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  COMPLETE
+  WAIVE
+  UPLOAD_DOCUMENT
+}
+
+model User {
+  id             String       @id @default(uuid())
+  name           String
+  email          String       @unique
+  passwordHash   String
+  role           UserRole
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  createdFacilities  Facility[]     @relation("CreatedFacilities")
+  updatedFacilities  Facility[]     @relation("UpdatedFacilities")
+  uploadedDocuments  Document[]
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  type      OrgType
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           User[]
+  lenderFacilities Facility[] @relation("LenderFacilities")
+  borrowerFacilities Facility[] @relation("BorrowerFacilities")
+}
+
+model Facility {
+  id                String         @id @default(uuid())
+  lenderOrgId       String
+  borrowerOrgId     String
+  name              String
+  facilityReference String
+  currency          String
+  totalCommitment   Decimal
+  startDate         DateTime
+  endDate           DateTime
+  status            FacilityStatus
+  description       String?
+  createdByUserId   String
+  updatedByUserId   String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  lender          Organization @relation("LenderFacilities", fields: [lenderOrgId], references: [id])
+  borrower        Organization @relation("BorrowerFacilities", fields: [borrowerOrgId], references: [id])
+  createdBy       User         @relation("CreatedFacilities", fields: [createdByUserId], references: [id])
+  updatedBy       User         @relation("UpdatedFacilities", fields: [updatedByUserId], references: [id])
+  covenants       Covenant[]
+  occurrences     CovenantOccurrence[]
+  documents       Document[]
+  financialMetrics FinancialMetric[]
+}
+
+model Covenant {
+  id                 String     @id @default(uuid())
+  facilityId         String
+  title              String
+  type               CovenantType
+  category           String?
+  description        String?
+  frequency          Frequency
+  dueRule            String?    // JSON or text description of rule
+  graceDays          Int        @default(0)
+  ownerRole          OwnerRole
+  importance         Importance
+  metricFormula      String?
+  thresholdCondition String?
+  active             Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  facility    Facility             @relation(fields: [facilityId], references: [id])
+  occurrences CovenantOccurrence[]
+}
+
+model CovenantOccurrence {
+  id              String           @id @default(uuid())
+  covenantId      String
+  facilityId      String
+  periodStartDate DateTime?
+  periodEndDate   DateTime?
+  dueDate         DateTime
+  status          OccurrenceStatus @default(PENDING)
+  completionDate  DateTime?
+  ragStatus       RagStatus        @default(GREEN)
+  ownerUserId     String?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  covenant      Covenant        @relation(fields: [covenantId], references: [id])
+  facility      Facility        @relation(fields: [facilityId], references: [id])
+  documents     Document[]
+  notifications Notification[]
+}
+
+model Document {
+  id                   String       @id @default(uuid())
+  facilityId           String
+  covenantOccurrenceId String?
+  uploadedByUserId     String
+  fileName             String
+  fileUrl              String
+  documentType         DocumentType
+  uploadedAt           DateTime     @default(now())
+
+  facility   Facility            @relation(fields: [facilityId], references: [id])
+  occurrence CovenantOccurrence? @relation(fields: [covenantOccurrenceId], references: [id])
+  uploadedBy User                @relation(fields: [uploadedByUserId], references: [id])
+}
+
+model FinancialMetric {
+  id              String   @id @default(uuid())
+  facilityId      String
+  metricName      String
+  value           Decimal
+  periodStartDate DateTime
+  periodEndDate   DateTime
+  createdAt       DateTime @default(now())
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+}
+
+model Notification {
+  id                   String              @id @default(uuid())
+  userId               String
+  covenantOccurrenceId String?
+  type                 NotificationType
+  channel              NotificationChannel
+  sentAt               DateTime?
+  readAt               DateTime?
+  payload              Json?
+  createdAt            DateTime            @default(now())
+
+  user       User                @relation(fields: [userId], references: [id])
+  occurrence CovenantOccurrence? @relation(fields: [covenantOccurrenceId], references: [id])
+}
+
+model AuditLog {
+  id                String      @id @default(uuid())
+  entityType        EntityType
+  entityId          String
+  action            AuditAction
+  performedByUserId String
+  timestamp         DateTime    @default(now())
+  details           Json?
+
+  performedBy User @relation(fields: [performedByUserId], references: [id])
+}
