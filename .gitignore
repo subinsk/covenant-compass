@@ -45,3 +45,6 @@ next-env.d.ts
 
 # private planning (never commit)
 docs/PRODUCT_PLAN.md
+
+# llm response cache
+.cache/
