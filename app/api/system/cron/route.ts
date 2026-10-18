@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { updateComplianceStatuses } from '@/lib/services/rag-engine'
-import { headers } from 'next/headers'
+import { isAuthorizedCron } from '@/lib/auth/cron'
 
-// GET /api/system/cron
-// In production, protect this with a CRON_SECRET header check
+// GET /api/system/cron — daily compliance status job, called by Vercel Cron.
 export async function GET(request: Request) {
-    // const authHeader = headers().get('authorization');
-    // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) { ... }
+    if (!isAuthorizedCron(request.headers.get('authorization'), process.env.CRON_SECRET)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     try {
         const stats = await updateComplianceStatuses()
