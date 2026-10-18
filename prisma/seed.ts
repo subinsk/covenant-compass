@@ -1,6 +1,7 @@
 import { PrismaClient, Frequency, Importance, OwnerRole, UserRole, OrgType, FacilityStatus, CovenantType, OccurrenceStatus, RagStatus } from '@prisma/client'
 import { addDays, subDays, addMonths, subMonths, startOfYear } from 'date-fns'
 import 'dotenv/config'
+import { hashPassword } from '../lib/auth/password'
 
 const prisma = new PrismaClient({
     datasources: {
@@ -43,15 +44,16 @@ async function main() {
         borrowers.push(await prisma.organization.create({ data: { name: name, type: OrgType.BORROWER } }))
     }
 
-    // 2. Users
+    // 2. Users (demo password for every seeded user: "secret")
+    const demoPasswordHash = await hashPassword('secret')
     const lenderAdmin = await prisma.user.create({
-        data: { name: 'Alice Lender', email: 'alice@acmecapital.com', passwordHash: 'hashed_secret', role: UserRole.LENDER_ADMIN, organizationId: lenderOrg.id }
+        data: { name: 'Alice Lender', email: 'alice@acmecapital.com', passwordHash: demoPasswordHash, role: UserRole.LENDER_ADMIN, organizationId: lenderOrg.id }
     })
 
     // Create random users
     for (let i = 0; i < 5; i++) {
         await prisma.user.create({
-            data: { name: `Lender User ${i}`, email: `user${i}@acmecapital.com`, passwordHash: 'hashed_secret', role: UserRole.LENDER_USER, organizationId: lenderOrg.id }
+            data: { name: `Lender User ${i}`, email: `user${i}@acmecapital.com`, passwordHash: demoPasswordHash, role: UserRole.LENDER_USER, organizationId: lenderOrg.id }
         })
     }
 
