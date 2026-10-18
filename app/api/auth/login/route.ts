@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { signToken } from '@/lib/auth/jwt'
-import { cookies } from 'next/headers'
+import { verifyPassword } from '@/lib/auth/password'
 
 export async function POST(request: Request) {
     try {
@@ -17,18 +17,7 @@ export async function POST(request: Request) {
             include: { organization: true }
         })
 
-        // In a real app, use bcrypt.compare(password, user.passwordHash)
-        // For this hackathon/demo, we assume simple check or bypass if seed data used
-        if (!user) {
-            return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-        }
-
-        // Password check logic (simplified for hackathon/seed)
-        const isSecretMaster = password === 'secret'
-        const isHashMatch = user.passwordHash === password // In real app: bcrypt.compare
-        const isSeedHashMatch = user.passwordHash === 'hashed_secret' && isSecretMaster
-
-        if (!isSecretMaster && !isHashMatch) {
+        if (!user || !(await verifyPassword(password, user.passwordHash))) {
             return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
         }
 
