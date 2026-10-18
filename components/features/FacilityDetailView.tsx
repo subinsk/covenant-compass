@@ -109,7 +109,7 @@ export default function FacilityDetailView({ facility }: { facility: any }) {
                                     {facility.covenants.length === 0 ? (
                                         <tr>
                                             <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                                                No covenants defined. Click "Add Covenant" to start.
+                                                No covenants defined. Click &quot;Add Covenant&quot; to start.
                                             </td>
                                         </tr>
                                     ) : (

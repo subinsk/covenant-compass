@@ -13,6 +13,8 @@ export default async function ReportsPage() {
         }
     })
 
+    const now = new Date()
+
     // We will serialize data for the client-side CSV export
     // But for now, we render the table server-side.
 
@@ -41,7 +43,7 @@ export default async function ReportsPage() {
                     <CardContent>
                         <div className="text-2xl font-bold text-amber-500">
                             {occurrences.filter(o => {
-                                const diff = new Date(o.dueDate).getTime() - Date.now()
+                                const diff = new Date(o.dueDate).getTime() - now.getTime()
                                 return diff > 0 && diff < 30 * 24 * 60 * 60 * 1000
                             }).length}
                         </div>
