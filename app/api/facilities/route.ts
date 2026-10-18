@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
 
     // Basic filtering logic based on user role
-    let where: any = {}
+    const where: any = {}
 
     if (userPayload.role.includes('LENDER')) {
         // Lender sees facilities where they are the lenderOrg

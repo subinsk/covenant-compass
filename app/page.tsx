@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui/core'
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { addDays } from 'date-fns'
 
 // Server Component for Dashboard
 export default async function Dashboard() {
@@ -8,14 +9,16 @@ export default async function Dashboard() {
   // In a real app we'd filter by logged-in user's org. 
   // For hackathon/seed demo, we assume we show "Lender View" of everything.
 
+  const now = new Date()
+
   const totalFacilities = await prisma.facility.count({ where: { status: 'ACTIVE' } })
 
   const upcomingOccurrences = await prisma.covenantOccurrence.count({
     where: {
       status: 'PENDING',
       dueDate: {
-        gte: new Date(),
-        lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+        gte: now,
+        lte: addDays(now, 30)
       }
     }
   })

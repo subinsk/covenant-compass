@@ -21,7 +21,7 @@ export async function generateScheduleForCovenant(covenantId: string) {
     }
 
     // Generate periodic
-    let startDate = startOfDay(new Date(facility.startDate))
+    const startDate = startOfDay(new Date(facility.startDate))
     const endDate = startOfDay(new Date(facility.endDate))
 
     // Logic: Iterate from start date adding frequency until end date

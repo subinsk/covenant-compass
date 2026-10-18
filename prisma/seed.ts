@@ -70,7 +70,7 @@ async function main() {
         const endDate = addMonths(startDate, durationMonths)
 
         // Status
-        let status = FacilityStatus.ACTIVE
+        let status: FacilityStatus = FacilityStatus.ACTIVE
         if (endDate < now) status = FacilityStatus.MATURED
 
         const f = await prisma.facility.create({
@@ -125,8 +125,8 @@ async function main() {
                 const dueDate = addDays(next, 30) // 30 days due rule
 
                 // Determine Status
-                let status = OccurrenceStatus.PENDING
-                let rag = RagStatus.GREEN
+                let status: OccurrenceStatus = OccurrenceStatus.PENDING
+                let rag: RagStatus = RagStatus.GREEN
 
                 if (dueDate < now) {
                     // Past item
