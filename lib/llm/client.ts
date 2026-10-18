@@ -1,4 +1,9 @@
+import { createHash } from 'node:crypto'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+
 // Minimal client for OpenAI-compatible chat completions (Ollama locally, Groq in production).
+// Set LLM_CACHE=1 in development to cache responses on disk (LLM_CACHE_DIR, default .cache/llm).
 
 export type ChatMessage = {
     role: 'system' | 'user' | 'assistant'
@@ -17,6 +22,14 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
     if (!model) throw new Error('LLM_MODEL is not set')
     const apiKey = process.env.LLM_API_KEY || 'none'
     const reasoningEffort = process.env.LLM_REASONING_EFFORT
+
+    const cacheFile = process.env.LLM_CACHE === '1'
+        ? cachePath({ baseUrl, model, messages, json: options.json, temperature: options.temperature, reasoningEffort })
+        : null
+    if (cacheFile) {
+        const cached = await readFile(cacheFile, 'utf8').catch(() => null)
+        if (cached !== null) return JSON.parse(cached).content
+    }
 
     const body: Record<string, unknown> = { model, messages }
     if (options.json) body.response_format = { type: 'json_object' }
@@ -40,5 +53,15 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
     const data = await res.json()
     const content = data?.choices?.[0]?.message?.content
     if (typeof content !== 'string') throw new Error('LLM response has no message content')
+
+    if (cacheFile) {
+        await mkdir(path.dirname(cacheFile), { recursive: true })
+        await writeFile(cacheFile, JSON.stringify({ content }))
+    }
     return content
+}
+
+function cachePath(key: unknown) {
+    const hash = createHash('sha256').update(JSON.stringify(key)).digest('hex')
+    return path.join(process.env.LLM_CACHE_DIR || path.join('.cache', 'llm'), `${hash}.json`)
 }

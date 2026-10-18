@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { chat } from './client'
 
@@ -11,6 +14,7 @@ describe('chat', () => {
         vi.stubEnv('LLM_MODEL', 'qwen3:4b')
         vi.stubEnv('LLM_API_KEY', 'test-key')
         vi.stubEnv('LLM_REASONING_EFFORT', '')
+        vi.stubEnv('LLM_CACHE', '')
     })
 
     afterEach(() => {
@@ -61,5 +65,37 @@ describe('chat', () => {
         await expect(chat([{ role: 'user', content: 'hi' }])).rejects.toThrow('LLM_MODEL is not set')
         vi.stubEnv('LLM_BASE_URL', '')
         await expect(chat([{ role: 'user', content: 'hi' }])).rejects.toThrow('LLM_BASE_URL is not set')
+    })
+})
+
+describe('chat cache', () => {
+    let dir: string
+
+    beforeEach(async () => {
+        dir = await mkdtemp(path.join(tmpdir(), 'llm-cache-'))
+        vi.stubEnv('LLM_BASE_URL', 'http://localhost:11434/v1/')
+        vi.stubEnv('LLM_MODEL', 'qwen3:4b')
+        vi.stubEnv('LLM_CACHE', '1')
+        vi.stubEnv('LLM_CACHE_DIR', dir)
+    })
+
+    afterEach(async () => {
+        vi.unstubAllEnvs()
+        vi.unstubAllGlobals()
+        await rm(dir, { recursive: true, force: true })
+    })
+
+    it('serves identical calls from disk and misses on a different message', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(okResponse('first'))
+            .mockResolvedValueOnce(okResponse('second'))
+        vi.stubGlobal('fetch', fetchMock)
+
+        expect(await chat([{ role: 'user', content: 'hi' }])).toBe('first')
+        expect(await chat([{ role: 'user', content: 'hi' }])).toBe('first')
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+
+        expect(await chat([{ role: 'user', content: 'bye' }])).toBe('second')
+        expect(fetchMock).toHaveBeenCalledTimes(2)
     })
 })
