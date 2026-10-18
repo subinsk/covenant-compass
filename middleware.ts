@@ -17,22 +17,15 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next()
     }
 
-    // Verify token
-    if (!token) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        return NextResponse.redirect(url)
-    }
+    const session = token ? await verifyToken(token) : null
+    if (session) return NextResponse.next()
 
-    try {
-        // We can also verify validity here if we want strict edge checking
-        // For now, presence check + API route verification is decent for MVP
-        return NextResponse.next()
-    } catch (e) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        return NextResponse.redirect(url)
-    }
+    // API routes get a 401; pages redirect to login. Either way, drop a bad cookie.
+    const response = pathname.startsWith('/api/')
+        ? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        : NextResponse.redirect(new URL('/login', request.url))
+    if (token) response.cookies.delete('token')
+    return response
 }
 
 export const config = {
