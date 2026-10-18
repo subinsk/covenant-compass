@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
     if (
         pathname.startsWith('/_next') ||
         pathname.startsWith('/api/auth') ||
+        pathname === '/api/system/cron' || // authorized by CRON_SECRET in the route
         pathname === '/login' ||
         pathname.endsWith('.ico')
     ) {
