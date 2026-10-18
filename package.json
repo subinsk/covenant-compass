@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "edgar:exhibits": "tsx scripts/edgar-exhibits.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
