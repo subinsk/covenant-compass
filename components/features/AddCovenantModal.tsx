@@ -4,7 +4,10 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/core'
 import { Loader2, Wand2, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { buildCovenantRequestBody, DEFAULT_COVENANT_TYPE, DEFAULT_FREQUENCY, type CovenantFormData } from '@/lib/covenants/new-covenant'
+import {
+    buildCovenantRequestBody, COVENANT_TYPE_LABELS, DEFAULT_COVENANT_TYPE, DEFAULT_FREQUENCY, FREQUENCY_LABELS,
+    saveErrorMessage, type CovenantFormData,
+} from '@/lib/covenants/new-covenant'
 
 export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: boolean; onClose: () => void; facilityId: string }) {
     const router = useRouter()
@@ -12,24 +15,28 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
     const [clauseText, setClauseText] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [formData, setFormData] = useState<CovenantFormData>({})
+    const [message, setMessage] = useState<string | null>(null)
 
     if (!isOpen) return null
 
     const handleParse = async () => {
         if (!clauseText) return
         setIsLoading(true)
+        setMessage(null)
         try {
             const res = await fetch('/api/ai/parse-covenant', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ clauseText })
             })
+            if (!res.ok) throw new Error(`Parse failed (${res.status})`)
             const suggestion = await res.json()
             setFormData({ ...suggestion, title: suggestion.suggestedTitle })
             setStep('review')
         } catch (e) {
             console.error(e)
-            // Fallback empty
             setFormData({ type: DEFAULT_COVENANT_TYPE, frequency: DEFAULT_FREQUENCY })
+            setMessage("Couldn't analyse the clause. Fill in the details below.")
             setStep('review')
         } finally {
             setIsLoading(false)
@@ -40,6 +47,7 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
 
     const handleSave = async () => {
         setIsLoading(true)
+        setMessage(null)
         try {
             const res = await fetch(`/api/facilities/${facilityId}/covenants`, {
                 method: 'POST',
@@ -52,9 +60,12 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                 setStep('input')
                 setClauseText('')
                 setFormData({})
+            } else {
+                setMessage(saveErrorMessage(res.status, await res.json().catch(() => null)))
             }
         } catch (e) {
             console.error(e)
+            setMessage('Could not reach the server. Try again.')
         } finally {
             setIsLoading(false)
         }
@@ -115,9 +126,9 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                                     value={body.type}
                                     onChange={e => setFormData({ ...formData, type: e.target.value })}
                                 >
-                                    <option value="FINANCIAL">Financial</option>
-                                    <option value="REPORTING">Reporting</option>
-                                    <option value="GENERAL">General</option>
+                                    {Object.entries(COVENANT_TYPE_LABELS).map(([value, label]) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="space-y-1">
@@ -127,9 +138,9 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                                     value={body.frequency}
                                     onChange={e => setFormData({ ...formData, frequency: e.target.value })}
                                 >
-                                    <option value="MONTHLY">Monthly</option>
-                                    <option value="QUARTERLY">Quarterly</option>
-                                    <option value="ANNUAL">Annual</option>
+                                    {Object.entries(FREQUENCY_LABELS).map(([value, label]) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="space-y-1">
@@ -160,6 +171,10 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                                     />
                                 </div>
                             </div>
+                        )}
+
+                        {message && (
+                            <p role="alert" className="text-sm text-destructive">{message}</p>
                         )}
 
                         <div className="flex justify-end gap-2 pt-2">
