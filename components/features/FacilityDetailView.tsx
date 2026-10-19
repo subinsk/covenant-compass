@@ -5,12 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/compo
 import { Plus } from 'lucide-react'
 import { AddCovenantModal } from './AddCovenantModal'
 import type { Prisma } from '@prisma/client'
+import { formatPeriod } from '@/lib/format/period'
 
 type FacilityWithDetails = Prisma.FacilityGetPayload<{
     include: { lender: true; borrower: true; covenants: true; occurrences: { include: { covenant: true } } }
 }>
 
-export default function FacilityDetailView({ facility }: { facility: FacilityWithDetails }) {
+// Prisma's Decimal can't cross from a server component to a client one, so the
+// page passes totalCommitment as a string.
+export type FacilityView = Omit<FacilityWithDetails, 'totalCommitment'> & { totalCommitment: string }
+
+export default function FacilityDetailView({ facility }: { facility: FacilityView }) {
     const [activeTab, setActiveTab] = useState('overview')
     const [isaddModalOpen, setIsAddModalOpen] = useState(false)
 
@@ -155,7 +160,7 @@ export default function FacilityDetailView({ facility }: { facility: FacilityWit
                                                 <td className="p-4">{new Date(occ.dueDate).toLocaleDateString()}</td>
                                                 <td className="p-4">
                                                     <span className="font-medium">{occ.covenant.title}</span>
-                                                    <div className="text-xs text-muted-foreground">{new Date(occ.periodStartDate ?? 0).toLocaleDateString()} - {new Date(occ.periodEndDate ?? 0).toLocaleDateString()}</div>
+                                                    <div className="text-xs text-muted-foreground">{formatPeriod(occ.periodStartDate, occ.periodEndDate)}</div>
                                                 </td>
                                                 <td className="p-4">
                                                     <Badge variant={occ.status === 'COMPLETED' ? 'success' : occ.status === 'OVERDUE' ? 'destructive' : 'secondary'}>
