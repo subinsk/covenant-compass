@@ -2,6 +2,8 @@
 // covenant testing: the definitions, the financial covenant sections and the
 // negative covenants. Offsets index into the same text, so they can be cited.
 
+import { buildDefinitionGraph, countTerms, dependencies } from './graph'
+
 export type SectionKind = 'definitions' | 'financial-covenants' | 'negative-covenants' | 'other'
 
 export type Section = {
@@ -191,10 +193,11 @@ export function findDefinitions(text: string, section?: Pick<Section, 'start' | 
 
 // Assembles the financial covenant sections plus the definitions they need, so
 // a 500K+ character agreement shrinks to what an extraction prompt needs.
-// Definitions the covenants mention come first, then the definitions those
-// mention (e.g. "Leverage Ratio" -> "Consolidated EBITDA"). Deeper chains
-// (what "Consolidated EBITDA" itself refers to) are not followed.
-export function relevantText(text: string, { maxChars = 60_000 }: { maxChars?: number } = {}) {
+// Definitions the covenants mention come first, then (through the definitions
+// graph) the definitions those mention, e.g. "Leverage Ratio" -> "Consolidated
+// EBITDA". depth counts these levels; by default deeper chains (what
+// "Consolidated EBITDA" itself refers to) are not followed.
+export function relevantText(text: string, { maxChars = 60_000, depth = 2 }: { maxChars?: number, depth?: number } = {}) {
     const sections = findSections(text)
     const covenantRanges = mergeRanges(sections.filter((s) => s.kind === 'financial-covenants'))
     const definitions = uniqueByTerm(findDefinitions(text, definitionsSection(sections)))
@@ -203,27 +206,21 @@ export function relevantText(text: string, { maxChars = 60_000 }: { maxChars?: n
     let size = parts.reduce((n, p) => n + p.end - p.start + 2, -2)
     const included = new Set<string>()
 
-    // Most-mentioned first, so trimming to maxChars drops the least used.
-    const addReferencedBy = (source: string) => {
-        const added: Definition[] = []
-        const referenced = definitions
-            .filter((d) => !included.has(d.term))
-            .map((d) => ({ d, mentions: countMentions(source, d.term) }))
-            .filter((x) => x.mentions > 0)
-            .sort((a, b) => b.mentions - a.mentions || a.d.start - b.d.start)
-        for (const { d } of referenced) {
-            if (size + 2 + d.end - d.start > maxChars) continue
-            parts.push({ kind: 'definition', label: d.term, start: d.start, end: d.end })
-            included.add(d.term)
-            added.push(d)
-            size += 2 + d.end - d.start
-        }
-        return added
+    // Added in priority order (most-mentioned first), so trimming to maxChars
+    // drops the least used.
+    const add = (term: string, d: Pick<Definition, 'start' | 'end'>) => {
+        if (included.has(term) || size + 2 + d.end - d.start > maxChars) return false
+        parts.push({ kind: 'definition', label: term, start: d.start, end: d.end })
+        included.add(term)
+        size += 2 + d.end - d.start
+        return true
     }
 
-    if (parts.length > 0) {
-        const direct = addReferencedBy(parts.map((p) => text.slice(p.start, p.end)).join('\n'))
-        addReferencedBy(direct.map((d) => text.slice(d.start, d.end)).join('\n'))
+    if (parts.length > 0 && depth > 0) {
+        const graph = buildDefinitionGraph(text, definitions)
+        const covenantText = parts.map((p) => text.slice(p.start, p.end)).join('\n')
+        const direct = [...countTerms(covenantText, [...graph.keys()]).keys()].filter((term) => add(term, graph.get(term)!))
+        for (const dep of dependencies(graph, direct, { maxDepth: depth - 1 })) add(dep.term, graph.get(dep.term)!)
     }
 
     const ordered = [
@@ -262,11 +259,6 @@ function mergeRanges(sections: Section[]) {
 function uniqueByTerm(definitions: Definition[]) {
     const seen = new Set<string>()
     return definitions.filter((d) => !seen.has(d.term) && seen.add(d.term))
-}
-
-function countMentions(haystack: string, term: string) {
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    return haystack.match(new RegExp(`(?<![A-Za-z])${escaped}s?(?![A-Za-z])`, 'g'))?.length ?? 0
 }
 
 function trimEnd(text: string, start: number, end: number) {
