@@ -10,6 +10,9 @@ const covenantSchema = z.object({
     operator: z.enum(['<=', '<', '>=', '>']),
     limit: z.number().positive(),
     actual: z.number().nonnegative().nullable(),
+    // Extraction is asked for maintenance covenants only, so incurrence tests are
+    // left out of recall (and reported as excluded). Missing means maintenance.
+    test: z.enum(['maintenance', 'incurrence']).optional(),
     note: z.string().optional(),
 })
 

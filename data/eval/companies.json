@@ -7,7 +7,7 @@
         "covenantEbitdaReconciliation": true,
         "covenants": [
             { "name": "Consolidated Secured Debt Ratio", "operator": "<=", "limit": 5.125, "actual": 2.59 },
-            { "name": "Interest Coverage Ratio", "operator": ">=", "limit": 2.0, "actual": 4.77, "note": "Incurrence test, not maintenance" }
+            { "name": "Interest Coverage Ratio", "operator": ">=", "limit": 2.0, "actual": 4.77, "test": "incurrence", "note": "Incurrence test, not maintenance; not stated in this exhibit's covenant section" }
         ],
         "source": "https://www.sec.gov/Archives/edgar/data/1584509/000158450926000122/cik0-20260703.htm",
         "agreements": [
