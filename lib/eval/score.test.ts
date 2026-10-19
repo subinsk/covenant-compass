@@ -164,3 +164,19 @@ describe('summarise', () => {
         expect(none.citationRate).toBeNull()
     })
 })
+
+describe('incurrence covenants', () => {
+    const expected = [
+        { name: 'Consolidated Secured Debt Ratio', operator: '<=' as const, limit: 5.125, actual: 2.59 },
+        { name: 'Interest Coverage Ratio', operator: '>=' as const, limit: 2, actual: 4.77, test: 'incurrence' as const },
+    ]
+
+    it('leaves them out of recall and reports them as excluded', () => {
+        const result = scoreCompany(expected, [])
+        expect(result.covenants.map((c) => c.expected.name)).toEqual(['Consolidated Secured Debt Ratio'])
+        expect(result.excluded.map((c) => c.name)).toEqual(['Interest Coverage Ratio'])
+        const summary = summarise([result])
+        expect(summary.expected).toBe(1)
+        expect(summary.excluded).toBe(1)
+    })
+})

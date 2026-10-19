@@ -112,10 +112,13 @@ export type CompanyScore = {
     // but the eval set lists only the covenants the 10-Q discloses, so an extra
     // covenant may well be real.
     extra: CitedCovenant[]
+    // Expected covenants that aren't maintenance tests, so aren't scored.
+    excluded: EvalCovenant[]
 }
 
 export function scoreCompany(expected: EvalCovenant[], extracted: CitedCovenant[]): CompanyScore {
-    const { matches, unmatchedExtracted } = matchCovenants(expected, extracted)
+    const scored = expected.filter((c) => c.test !== 'incurrence')
+    const { matches, unmatchedExtracted } = matchCovenants(scored, extracted)
     return {
         covenants: matches.map(({ expected: exp, extracted: ext }) => ({
             expected: exp,
@@ -128,6 +131,7 @@ export function scoreCompany(expected: EvalCovenant[], extracted: CitedCovenant[
             limitInQuote: ext !== null && ext.limitInQuote,
         })),
         extra: unmatchedExtracted,
+        excluded: expected.filter((c) => c.test === 'incurrence'),
     }
 }
 
@@ -141,6 +145,7 @@ export type EvalSummary = {
     cited: number
     limitInQuote: number
     extras: number
+    excluded: number
     // found / expected
     recall: number | null
     // The rest are over found covenants.
@@ -170,6 +175,7 @@ export function summarise(results: CompanyScore[]): EvalSummary {
         cited: count('cited'),
         limitInQuote: count('limitInQuote'),
         extras: results.reduce((n, r) => n + r.extra.length, 0),
+        excluded: results.reduce((n, r) => n + (r.excluded?.length ?? 0), 0),
         recall: rate(found, all.length),
         limitAccuracy: rate(count('limitCorrect'), found),
         operatorAccuracy: rate(count('operatorCorrect'), found),
