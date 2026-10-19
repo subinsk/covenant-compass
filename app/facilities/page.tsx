@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/components/ui/core'
+import { Card, CardContent, Badge, Button } from '@/components/ui/core'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 

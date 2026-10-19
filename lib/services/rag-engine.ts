@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
-import { OccurrenceStatus, RagStatus, NotificationType } from '@prisma/client'
-import { subDays, isBefore, addDays } from 'date-fns'
+import { OccurrenceStatus, RagStatus, NotificationType, Prisma } from '@prisma/client'
+import { addDays } from 'date-fns'
 
 /**
  * Recalculates RAG status for all pending occurrences.
@@ -8,8 +8,8 @@ import { subDays, isBefore, addDays } from 'date-fns'
  */
 export async function updateComplianceStatuses() {
     const now = new Date()
-    const warningsToCreate: any[] = []
-    const alertsToCreate: any[] = []
+    const warningsToCreate: Prisma.NotificationCreateManyInput[] = []
+    const alertsToCreate: Prisma.NotificationCreateManyInput[] = []
 
     // 1. Find PENDING items that are past due -> Turn to OVERDUE / RED
     const overdueItems = await prisma.covenantOccurrence.findMany({

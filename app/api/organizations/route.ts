@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth/jwt'
-import { cookies } from 'next/headers'
+import { getSession } from '@/lib/auth/session'
+import { OrgType, Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('token')?.value
-    const userPayload = await verifyToken(token || '') as any
+    const session = await getSession()
 
-    if (!userPayload) {
+    if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -16,8 +14,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type')
 
-    const where: any = {}
-    if (type) where.type = type
+    const where: Prisma.OrganizationWhereInput = {}
+    if (type) where.type = type as OrgType
 
     const orgs = await prisma.organization.findMany({
         where,

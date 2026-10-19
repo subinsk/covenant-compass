@@ -1,18 +1,24 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth/jwt'
-import { cookies } from 'next/headers'
+import { getSession } from '@/lib/auth/session'
+import { canAccessFacility, isLender } from '@/lib/auth/access'
 import { generateScheduleForCovenant } from '@/lib/services/schedule-engine'
 
 // GET /api/facilities/[facilityId]/covenants
 export async function GET(request: Request, { params }: { params: Promise<{ facilityId: string }> }) {
     const { facilityId } = await params
-    const cookieStore = await cookies()
-    const token = cookieStore.get('token')?.value
-    const userPayload = await verifyToken(token || '') as any
+    const session = await getSession()
 
-    if (!userPayload) {
+    if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const facility = await prisma.facility.findUnique({
+        where: { id: facilityId },
+        select: { lenderOrgId: true, borrowerOrgId: true }
+    })
+    if (!facility || !canAccessFacility(session, facility)) {
+        return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
     }
 
     const covenants = await prisma.covenant.findMany({
@@ -26,12 +32,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ faci
 // POST /api/facilities/[facilityId]/covenants
 export async function POST(request: Request, { params }: { params: Promise<{ facilityId: string }> }) {
     const { facilityId } = await params
-    const cookieStore = await cookies()
-    const token = cookieStore.get('token')?.value
-    const userPayload = await verifyToken(token || '') as any
+    const session = await getSession()
 
-    if (!userPayload || !userPayload.role.includes('LENDER')) {
+    if (!session) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!isLender(session)) {
         return NextResponse.json({ error: 'Unauthorized or Forbidden' }, { status: 403 })
+    }
+
+    const facility = await prisma.facility.findUnique({
+        where: { id: facilityId },
+        select: { lenderOrgId: true, borrowerOrgId: true }
+    })
+    if (!facility || !canAccessFacility(session, facility)) {
+        return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
     }
 
     try {

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui/core'
-import { Download, FileWarning } from 'lucide-react'
+import { Download } from 'lucide-react'
 
 export default async function ReportsPage() {
     const occurrences = await prisma.covenantOccurrence.findMany({

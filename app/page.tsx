@@ -120,7 +120,7 @@ export default async function Dashboard() {
   )
 }
 
-function KpiCard({ title, value, icon, color }: any) {
+function KpiCard({ title, value, icon, color }: { title: string; value: string | number; icon: React.ReactNode; color: string }) {
   return (
     <Card>
       <CardContent className="p-6 flex items-center justify-between">
