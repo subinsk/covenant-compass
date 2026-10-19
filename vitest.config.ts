@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import path from 'node:path'
 
 export default defineConfig({
@@ -7,5 +7,7 @@ export default defineConfig({
     },
     test: {
         environment: 'node',
+        // Integration tests need a database; they run with `npm run test:int`.
+        exclude: [...configDefaults.exclude, '**/*.int.test.ts'],
     },
 })

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
-import { isLender } from '@/lib/auth/access'
+import { facilityScope, isLender } from '@/lib/auth/access'
 import { FacilityStatus, OrgType, Prisma } from '@prisma/client'
 import { createFacilitySchema, facilityQuerySchema } from '@/lib/validation/facility'
 import { invalidInput, queryParams } from '@/lib/validation/http'
@@ -17,9 +17,7 @@ export async function GET(request: Request) {
     if (!query.success) return invalidInput(query.error)
 
     // Lenders see facilities their org lends on; borrowers, facilities their org borrows on
-    const where: Prisma.FacilityWhereInput = isLender(session)
-        ? { lenderOrgId: session.orgId }
-        : { borrowerOrgId: session.orgId }
+    const where: Prisma.FacilityWhereInput = facilityScope(session)
 
     if (query.data.status) {
         where.status = query.data.status
