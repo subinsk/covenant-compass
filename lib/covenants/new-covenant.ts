@@ -1,3 +1,5 @@
+import type { CovenantType, Frequency } from '@prisma/client'
+
 export type CovenantFormData = Record<string, string | number | undefined>
 
 export type NewCovenantBody = {
@@ -39,4 +41,35 @@ export function buildCovenantRequestBody(form: CovenantFormData): NewCovenantBod
         metricFormula: isFinancial ? text(form.metricFormula) : undefined,
         thresholdCondition: isFinancial ? text(form.thresholdCondition) : undefined,
     }
+}
+
+// Labels for the form's selects. `satisfies` makes the compiler flag a missing
+// or unknown value whenever the Prisma enums change.
+export const COVENANT_TYPE_LABELS = {
+    FINANCIAL: 'Financial',
+    REPORTING: 'Reporting',
+    GENERAL: 'General',
+    ESG: 'ESG',
+} satisfies Record<CovenantType, string>
+
+export const FREQUENCY_LABELS = {
+    ONE_TIME: 'One-time',
+    MONTHLY: 'Monthly',
+    QUARTERLY: 'Quarterly',
+    SEMI_ANNUAL: 'Semi-annual',
+    ANNUAL: 'Annual',
+    EVENT_DRIVEN: 'Event-driven',
+} satisfies Record<Frequency, string>
+
+type ErrorBody = { error?: string, issues?: { formErrors?: string[], fieldErrors?: Record<string, string[] | undefined> } }
+
+// Turns a failed save response into one line for the form.
+export function saveErrorMessage(status: number, body: unknown): string {
+    const { error, issues } = (body ?? {}) as ErrorBody
+    const fieldErrors = Object.entries(issues?.fieldErrors ?? {})
+        .filter(([, messages]) => messages && messages.length > 0)
+        .map(([field, messages]) => `${field}: ${messages![0]}`)
+    const details = [...(issues?.formErrors ?? []), ...fieldErrors]
+    const base = error ?? `Save failed (${status})`
+    return details.length > 0 ? `${base}: ${details.join('; ')}` : base
 }

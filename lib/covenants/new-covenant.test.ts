@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCovenantRequestBody } from './new-covenant'
+import { buildCovenantRequestBody, COVENANT_TYPE_LABELS, FREQUENCY_LABELS, saveErrorMessage } from './new-covenant'
 
 describe('buildCovenantRequestBody', () => {
     it('sends the suggested title as title', () => {
@@ -61,5 +61,24 @@ describe('buildCovenantRequestBody', () => {
         })
         expect(body.metricFormula).toBeUndefined()
         expect(body.thresholdCondition).toBeUndefined()
+    })
+})
+
+describe('saveErrorMessage', () => {
+    it('lists field errors from a validation response', () => {
+        const body = { error: 'Invalid input', issues: { formErrors: [], fieldErrors: { title: ['Required'], graceDays: ['Too small'] } } }
+        expect(saveErrorMessage(400, body)).toBe('Invalid input: title: Required; graceDays: Too small')
+    })
+
+    it('falls back to the error or the status', () => {
+        expect(saveErrorMessage(403, { error: 'Forbidden' })).toBe('Forbidden')
+        expect(saveErrorMessage(500, null)).toBe('Save failed (500)')
+    })
+})
+
+describe('select labels', () => {
+    it('offers every covenant type and frequency', () => {
+        expect(Object.keys(COVENANT_TYPE_LABELS)).toEqual(['FINANCIAL', 'REPORTING', 'GENERAL', 'ESG'])
+        expect(Object.keys(FREQUENCY_LABELS)).toEqual(['ONE_TIME', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'EVENT_DRIVEN'])
     })
 })
