@@ -1,6 +1,7 @@
 import { relevantText } from '@/lib/agreements/sections'
 import type { ChatMessage } from '@/lib/llm/client'
 import { chatJson } from '@/lib/llm/structured'
+import { checkDirection } from './direction'
 import { extractionSchema, metrics, type ExtractedCovenant } from './schema'
 
 export type Citation = { start: number, end: number }
@@ -9,6 +10,8 @@ export type CitedCovenant = ExtractedCovenant & {
     citation: Citation | null
     verified: boolean
     limitInQuote: boolean
+    operatorCorrected: boolean
+    directionConflict: boolean
 }
 
 const SYSTEM_PROMPT = [
@@ -51,7 +54,13 @@ export async function extractCovenants(
     return {
         covenants: covenants.map((c) => {
             const citation = locateQuote(agreementText, c.quote)
-            return { ...c, citation, verified: citation !== null, limitInQuote: numberInText(c.limit, c.quote) }
+            return {
+                ...c,
+                ...checkDirection(c),
+                citation,
+                verified: citation !== null,
+                limitInQuote: numberInText(c.limit, c.quote),
+            }
         }),
         promptChars,
     }
