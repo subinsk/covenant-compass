@@ -15,7 +15,8 @@
     "agreement:clauses": "tsx scripts/agreement-clauses.ts",
     "definitions:graph": "tsx scripts/definitions-graph.ts",
     "extract:covenants": "tsx scripts/extract-covenants.ts",
-    "eval:extraction": "tsx scripts/eval-extraction.ts"
+    "eval:extraction": "tsx scripts/eval-extraction.ts",
+    "xbrl:financials": "tsx scripts/xbrl-financials.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
