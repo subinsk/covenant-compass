@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { isLender } from '@/lib/auth/access'
-import { FacilityStatus, Prisma } from '@prisma/client'
+import { FacilityStatus, OrgType, Prisma } from '@prisma/client'
+import { createFacilitySchema, facilityQuerySchema } from '@/lib/validation/facility'
+import { invalidInput, queryParams } from '@/lib/validation/http'
 
 export async function GET(request: Request) {
     const session = await getSession()
@@ -11,17 +13,16 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get queries
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
+    const query = facilityQuerySchema.safeParse(queryParams(request.url))
+    if (!query.success) return invalidInput(query.error)
 
     // Lenders see facilities their org lends on; borrowers, facilities their org borrows on
     const where: Prisma.FacilityWhereInput = isLender(session)
         ? { lenderOrgId: session.orgId }
         : { borrowerOrgId: session.orgId }
 
-    if (status) {
-        where.status = status as FacilityStatus
+    if (query.data.status) {
+        where.status = query.data.status
     }
 
     const facilities = await prisma.facility.findMany({
@@ -54,12 +55,22 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Only lenders can create facilities' }, { status: 403 })
     }
 
+    const parsed = createFacilitySchema.safeParse(await request.json().catch(() => null))
+    if (!parsed.success) return invalidInput(parsed.error)
+    const body = parsed.data
+
+    const borrower = await prisma.organization.findUnique({
+        where: { id: body.borrowerOrgId },
+        select: { type: true }
+    })
+    if (!borrower || borrower.type !== OrgType.BORROWER) {
+        return NextResponse.json({
+            error: 'Invalid input',
+            issues: { formErrors: [], fieldErrors: { borrowerOrgId: ['Borrower organization not found'] } }
+        }, { status: 400 })
+    }
+
     try {
-        const body = await request.json()
-        // Basic validation
-        if (!body.name || !body.borrowerOrgId || !body.currency || !body.totalCommitment) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-        }
 
         const facility = await prisma.facility.create({
             data: {
@@ -69,8 +80,8 @@ export async function POST(request: Request) {
                 borrowerOrgId: body.borrowerOrgId,
                 currency: body.currency,
                 totalCommitment: body.totalCommitment,
-                startDate: new Date(body.startDate),
-                endDate: new Date(body.endDate),
+                startDate: body.startDate,
+                endDate: body.endDate,
                 status: FacilityStatus.ACTIVE,
                 description: body.description,
                 createdByUserId: session.userId,

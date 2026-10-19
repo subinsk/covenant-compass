@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
 import { generateScheduleForCovenant } from '@/lib/services/schedule-engine'
+import { createCovenantSchema } from '@/lib/validation/covenant'
+import { invalidInput } from '@/lib/validation/http'
 
 // GET /api/facilities/[facilityId]/covenants
 export async function GET(request: Request, { params }: { params: Promise<{ facilityId: string }> }) {
@@ -50,25 +52,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ fac
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
     }
 
-    try {
-        const body = await request.json()
+    const parsed = createCovenantSchema.safeParse(await request.json().catch(() => null))
+    if (!parsed.success) return invalidInput(parsed.error)
 
+    try {
         const covenant = await prisma.covenant.create({
-            data: {
-                facilityId,
-                title: body.title,
-                type: body.type,
-                category: body.category,
-                description: body.description,
-                frequency: body.frequency,
-                dueRule: body.dueRule,
-                graceDays: parseInt(body.graceDays || '0'),
-                ownerRole: body.ownerRole || 'BORROWER',
-                importance: body.importance || 'MEDIUM',
-                metricFormula: body.metricFormula,
-                thresholdCondition: body.thresholdCondition,
-                active: true
-            }
+            data: { ...parsed.data, facilityId, active: true }
         })
 
         // Trigger Schedule Generation

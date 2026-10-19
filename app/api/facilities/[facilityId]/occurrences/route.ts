@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility } from '@/lib/auth/access'
-import { OccurrenceStatus, Prisma, RagStatus } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import { occurrenceQuerySchema } from '@/lib/validation/covenant'
+import { invalidInput, queryParams } from '@/lib/validation/http'
 
 // GET /api/facilities/[facilityId]/occurrences
 export async function GET(request: Request, { params }: { params: Promise<{ facilityId: string }> }) {
@@ -21,13 +23,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ faci
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
-    const ragStatus = searchParams.get('ragStatus')
+    const query = occurrenceQuerySchema.safeParse(queryParams(request.url))
+    if (!query.success) return invalidInput(query.error)
 
     const where: Prisma.CovenantOccurrenceWhereInput = { facilityId }
-    if (status) where.status = status as OccurrenceStatus
-    if (ragStatus) where.ragStatus = ragStatus as RagStatus
+    if (query.data.status) where.status = query.data.status
+    if (query.data.ragStatus) where.ragStatus = query.data.ragStatus
 
     const occurrences = await prisma.covenantOccurrence.findMany({
         where,
