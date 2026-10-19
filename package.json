@@ -12,7 +12,8 @@
     "edgar:exhibits": "tsx scripts/edgar-exhibits.ts",
     "agreement:text": "tsx scripts/agreement-text.ts",
     "agreement:sections": "tsx scripts/agreement-sections.ts",
-    "agreement:clauses": "tsx scripts/agreement-clauses.ts"
+    "agreement:clauses": "tsx scripts/agreement-clauses.ts",
+    "definitions:graph": "tsx scripts/definitions-graph.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
