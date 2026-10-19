@@ -24,7 +24,8 @@ flowchart LR
 3. **Structure** (`lib/agreements/sections.ts`, `clauses.ts`): find the definitions article and the financial covenant sections, every defined term, and the sentences and enumerated clauses, all as offsets into the same text.
 4. **Definition graph** (`lib/agreements/graph.ts`): record which defined terms each definition mentions, so a covenant can be traced from "Leverage Ratio" to "Consolidated EBITDA" and further.
 5. **Extract** (`lib/extraction`): send the covenant sections plus the definitions they depend on (up to four levels) to an LLM, validate the JSON reply with zod and retry on failure, then find each returned quote in the original text. A covenant whose quote can't be found is marked unverified.
-6. **Evaluate** (`data/eval/companies.json`): compare the result with the covenant limits and actual ratios that 15 companies disclosed in their 10-Q filings.
+6. **Review** (`/review`, `lib/extraction/review.ts`): `npm run extract:facility` saves a facility's extracted covenants as pending; a lender approves each one (creating a covenant on the facility) or rejects it. Unverified quotes and direction conflicts are highlighted.
+7. **Evaluate** (`data/eval/companies.json`): compare the result with the covenant limits and actual ratios that 15 companies disclosed in their 10-Q filings.
 
 More detail is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
