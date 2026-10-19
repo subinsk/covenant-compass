@@ -12,6 +12,8 @@ function ext(name: string, operator: CitedCovenant['operator'], limit: number, v
         citation: verified ? { start: 0, end: 5 } : null,
         verified,
         limitInQuote: true,
+        operatorCorrected: false,
+        directionConflict: false,
     }
 }
 
