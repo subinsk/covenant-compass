@@ -1,0 +1,237 @@
+[
+    {
+        "ticker": "ARMK",
+        "name": "Aramark",
+        "cik": "1584509",
+        "periodEnd": "2026-07-03",
+        "covenantEbitdaReconciliation": true,
+        "covenants": [
+            { "name": "Consolidated Secured Debt Ratio", "operator": "<=", "limit": 5.125, "actual": 2.59 },
+            { "name": "Interest Coverage Ratio", "operator": ">=", "limit": 2.0, "actual": 4.77, "note": "Incurrence test, not maintenance" }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1584509/000158450926000122/cik0-20260703.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1584509/000158450925000224/aramark-2026bx8repricingxa.htm"
+        ],
+        "notes": "Term B lenders do not benefit from the secured debt ratio covenant. Agreement is an old base with many amendments."
+    },
+    {
+        "ticker": "TRS",
+        "name": "TriMas",
+        "cik": "842633",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": true,
+        "covenants": [
+            { "name": "Total Net Leverage Ratio", "operator": "<=", "limit": 4.0, "actual": 1.77, "note": "4.50x after a qualifying acquisition" },
+            { "name": "Interest Expense Coverage Ratio", "operator": ">=", "limit": 3.0, "actual": 21.21 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/842633/000084263326000049/trs-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/842633/000084263326000029/trs_03312026xexh101.htm",
+            "https://www.sec.gov/Archives/edgar/data/842633/000084263325000073/ex101creditagreement.htm"
+        ]
+    },
+    {
+        "ticker": "WEST",
+        "name": "Westrock Coffee",
+        "cik": "1806347",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": true,
+        "covenants": [
+            { "name": "Secured Net Leverage Ratio", "operator": "<=", "limit": 4.0, "actual": 3.36, "note": "Limit steps down over time" }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1806347/000110465926092129/west-20260630x10q.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1806347/000110465926079351/tm2618568d1_ex10-1.htm",
+            "https://www.sec.gov/Archives/edgar/data/1806347/000110465925107736/west-20251104xex10d1.htm"
+        ]
+    },
+    {
+        "ticker": "SPH",
+        "name": "Suburban Propane Partners",
+        "cik": "1005210",
+        "periodEnd": "2026-06-27",
+        "covenantEbitdaReconciliation": true,
+        "covenants": [
+            { "name": "Total Consolidated Leverage Ratio", "operator": "<=", "limit": 5.75, "actual": 4.35 },
+            { "name": "Consolidated Interest Coverage Ratio", "operator": ">=", "limit": 2.5, "actual": null }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1005210/000100521026000011/sph-20260627.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1005210/000119312524069719/d747502dex101.htm"
+        ]
+    },
+    {
+        "ticker": "CODI",
+        "name": "Compass Diversified",
+        "cik": "1345126",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Consolidated Fixed Charge Coverage Ratio", "operator": ">=", "limit": 1.0, "actual": 1.6 },
+            { "name": "Consolidated Senior Secured Leverage Ratio", "operator": "<=", "limit": 2.5, "actual": 0.66 },
+            { "name": "Consolidated Total Leverage Ratio", "operator": "<=", "limit": 5.75, "actual": 4.82 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1345126/000134512626000061/codi-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1345126/000134512626000062/exhibit101-sixthcreditfaci.htm",
+            "https://www.sec.gov/Archives/edgar/data/1345126/000134512625000089/exhibit101-fifthcreditfaci.htm"
+        ],
+        "notes": "Stress case: forbearances and amendments after a subsidiary fraud."
+    },
+    {
+        "ticker": "TTEC",
+        "name": "TTEC Holdings",
+        "cik": "1013880",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Net Leverage Ratio", "operator": "<=", "limit": 3.75, "actual": 3.85, "note": "Breached; lenders granted a waiver on 2026-07-15" }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1013880/000110465926093402/ttec-20260630x10q.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1013880/000110465926093402/ttec-20260630xex10d99.htm"
+        ],
+        "notes": "Breach case. Eleventh Amendment raises the maximum to 4.25x from 2026-09-30."
+    },
+    {
+        "ticker": "QUAD",
+        "name": "Quad/Graphics",
+        "cik": "1481792",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Total Leverage Ratio", "operator": "<=", "limit": 3.5, "actual": 2.0 },
+            { "name": "Senior Secured Leverage Ratio", "operator": "<=", "limit": 3.0, "actual": 1.99 },
+            { "name": "Interest Coverage Ratio", "operator": ">=", "limit": 3.0, "actual": 5.23 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1481792/000148179226000130/quad-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1481792/000148179226000042/exhibit47-quad2025amendmen.htm"
+        ]
+    },
+    {
+        "ticker": "CARS",
+        "name": "Cars.com",
+        "cik": "1683606",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Senior Secured Net Leverage Ratio", "operator": "<=", "limit": 3.5, "actual": 0.08 },
+            { "name": "Consolidated Interest Coverage Ratio", "operator": ">=", "limit": 3.0, "actual": 7.2 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1683606/000119312526337949/cars-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1683606/000095017024056894/cars-ex10_1.htm"
+        ]
+    },
+    {
+        "ticker": "ACHC",
+        "name": "Acadia Healthcare",
+        "cik": "1520697",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Consolidated Total Net Leverage Ratio", "operator": "<=", "limit": 5.0, "actual": 4.1, "note": "5.5x after a qualifying acquisition" },
+            { "name": "Interest Coverage Ratio", "operator": ">=", "limit": 3.0, "actual": null }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1520697/000119312526321076/achc-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1520697/000119312525042573/d922354dex101.htm"
+        ]
+    },
+    {
+        "ticker": "ROAD",
+        "name": "Construction Partners",
+        "cik": "1718227",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Consolidated Net Leverage Ratio", "operator": "<=", "limit": 4.75, "actual": 3.17, "note": "Limit steps down over time" },
+            { "name": "Consolidated Interest Coverage Ratio", "operator": ">=", "limit": 2.75, "actual": 5.37 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1718227/000162828026054661/road-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1718227/000162828026054661/a2026q3exhibit101.htm",
+            "https://www.sec.gov/Archives/edgar/data/1718227/000119312525154409/d22666dex101.htm"
+        ]
+    },
+    {
+        "ticker": "OUT",
+        "name": "OUTFRONT Media",
+        "cik": "1579877",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Consolidated Net Secured Leverage Ratio", "operator": "<=", "limit": 4.5, "actual": 1.5 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1579877/000157987726000043/out-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1579877/000157987725000113/creditagt.htm"
+        ]
+    },
+    {
+        "ticker": "SMG",
+        "name": "Scotts Miracle-Gro",
+        "cik": "825542",
+        "periodEnd": "2026-06-27",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Leverage Ratio", "operator": "<=", "limit": 5.0, "actual": 3.78, "note": "Uses average total indebtedness" },
+            { "name": "Interest Coverage Ratio", "operator": ">=", "limit": 3.0, "actual": 5.67 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/825542/000082554226000041/smg-20260627.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/825542/000082554225000018/exhibit101smg2025-11x248xk.htm"
+        ]
+    },
+    {
+        "ticker": "NVRI",
+        "name": "Enviri",
+        "cik": "2104052",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Net Debt to Consolidated Adjusted EBITDA Ratio", "operator": "<=", "limit": 3.0, "actual": 1.94 },
+            { "name": "Interest Coverage Ratio", "operator": ">=", "limit": 2.5, "actual": 4.6 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/2104052/000210405226000128/nvri-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/45876/000004587626000010/exhibit1026amendmentno17to.htm",
+            "https://www.sec.gov/Archives/edgar/data/2104052/000119312526251752/d258410dex102.htm"
+        ],
+        "notes": "New registrant after a restructuring; the amendment was filed under legacy CIK 45876."
+    },
+    {
+        "ticker": "MEC",
+        "name": "Mayville Engineering",
+        "cik": "1766368",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Consolidated Total Leverage Ratio", "operator": "<=", "limit": 5.25, "actual": 2.91 },
+            { "name": "Consolidated Interest Coverage Ratio", "operator": ">=", "limit": 2.75, "actual": 3.27 }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1766368/000110465926091110/tmb-20260630x10q.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1766368/000110465926020541/tmb-20260225xex10d2.htm",
+            "https://www.sec.gov/Archives/edgar/data/1766368/000110465926020541/tmb-20260225xex10d1.htm"
+        ]
+    },
+    {
+        "ticker": "DXPE",
+        "name": "DXP Enterprises",
+        "cik": "1020710",
+        "periodEnd": "2026-06-30",
+        "covenantEbitdaReconciliation": false,
+        "covenants": [
+            { "name": "Secured Leverage Ratio", "operator": "<", "limit": 5.75, "actual": 2.3, "note": "Term loan maintenance covenant" },
+            { "name": "Fixed Charge Coverage Ratio", "operator": ">=", "limit": 1.0, "actual": 2.97, "note": "ABL springing covenant" }
+        ],
+        "source": "https://www.sec.gov/Archives/edgar/data/1020710/000162828026054179/dxpe-20260630.htm",
+        "agreements": [
+            "https://www.sec.gov/Archives/edgar/data/1020710/000162828025058553/dxp-amendmentno4totermlo.htm",
+            "https://www.sec.gov/Archives/edgar/data/1020710/000162828026047831/creditagreement.htm"
+        ]
+    }
+]
