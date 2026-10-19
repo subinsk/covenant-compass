@@ -98,6 +98,40 @@ The seed creates these users, all with the password `secret`:
 
 The EDGAR scripts need `SEC_USER_AGENT`; `extract:covenants` also needs the `LLM_*` variables.
 
+## MCP server
+
+`npm run mcp` starts a stdio [Model Context Protocol](https://modelcontextprotocol.io) server, so any MCP client can use the covenant tools:
+
+| Tool | What it does |
+| --- | --- |
+| `list_eval_companies` | Eval-set companies with covenant limits, disclosed actual ratios and agreement URLs. |
+| `find_covenant_sections` | Financial covenant sections of an EDGAR agreement (heading, page, first 800 characters). |
+| `search_agreement` | Case-insensitive phrase search over an agreement; matching sentences with page numbers. |
+| `test_covenant` | Evaluate a JSON formula against inputs: value with trace, missing inputs, compliance, headroom and the denominator cushion for maximum ratios. |
+| `extract_covenants` | LLM extraction of an agreement's financial covenants (needs the `LLM_*` variables). |
+
+Client config (run from the repo root; the server also reads `.env` from its working directory):
+
+```json
+{
+  "mcpServers": {
+    "covenant-compass": {
+      "command": "npx",
+      "args": ["tsx", "mcp/server.ts"],
+      "cwd": "/path/to/covenant-compass",
+      "env": {
+        "SEC_USER_AGENT": "Covenant Compass you@example.com",
+        "LLM_BASE_URL": "http://localhost:11434/v1/",
+        "LLM_MODEL": "qwen3:4b",
+        "LLM_API_KEY": "ollama"
+      }
+    }
+  }
+}
+```
+
+The `LLM_*` entries are optional; without them every tool except `extract_covenants` works.
+
 ## Testing
 
 ```bash
