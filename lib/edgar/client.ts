@@ -1,26 +1,28 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 // Small SEC EDGAR client. SEC allows at most 10 requests/second and requires a
 // User-Agent with a name and contact email (env SEC_USER_AGENT).
 // Responses are cached on disk under .cache/edgar (override with EDGAR_CACHE_DIR).
+// Filing documents never change, so they're cached forever; pass maxAgeMs for
+// endpoints that do change (submissions, company facts).
 
 const MIN_INTERVAL_MS = 110
 const MAX_ATTEMPTS = 3
 const RETRY_BASE_MS = 1000
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 let lastRequestAt = 0
 
-export async function edgarFetch(url: string): Promise<string> {
+export async function edgarFetch(url: string, { maxAgeMs }: { maxAgeMs?: number } = {}): Promise<string> {
     const userAgent = process.env.SEC_USER_AGENT
     if (!userAgent) {
         throw new Error('SEC_USER_AGENT is not set (SEC requires a name and contact email, e.g. "Covenant Compass you@example.com")')
     }
 
     const cacheFile = cachePath(url)
-    const cached = await readFile(cacheFile, 'utf8').catch(() => null)
-    if (cached !== null) return cached
+    if (await isFresh(cacheFile, maxAgeMs)) return readFile(cacheFile, 'utf8')
 
     for (let attempt = 1; ; attempt++) {
         await throttle()
@@ -39,8 +41,8 @@ export async function edgarFetch(url: string): Promise<string> {
     }
 }
 
-export async function edgarJson<T = unknown>(url: string): Promise<T> {
-    return JSON.parse(await edgarFetch(url)) as T
+export async function edgarJson<T = unknown>(url: string, options?: { maxAgeMs?: number }): Promise<T> {
+    return JSON.parse(await edgarFetch(url, options)) as T
 }
 
 export function padCik(cik: string | number): string {
@@ -63,11 +65,11 @@ export type Submissions = {
 }
 
 export function getSubmissions(cik: string | number): Promise<Submissions> {
-    return edgarJson<Submissions>(`https://data.sec.gov/submissions/CIK${padCik(cik)}.json`)
+    return edgarJson<Submissions>(`https://data.sec.gov/submissions/CIK${padCik(cik)}.json`, { maxAgeMs: ONE_DAY_MS })
 }
 
 export function getCompanyFacts(cik: string | number): Promise<unknown> {
-    return edgarJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${padCik(cik)}.json`)
+    return edgarJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${padCik(cik)}.json`, { maxAgeMs: ONE_DAY_MS })
 }
 
 export function filingFolderUrl(cik: string | number, accessionNumber: string): string {
@@ -82,6 +84,12 @@ async function throttle() {
     const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now()
     if (wait > 0) await sleep(wait)
     lastRequestAt = Date.now()
+}
+
+async function isFresh(file: string, maxAgeMs?: number) {
+    const info = await stat(file).catch(() => null)
+    if (!info) return false
+    return maxAgeMs === undefined || Date.now() - info.mtimeMs < maxAgeMs
 }
 
 function sleep(ms: number) {
