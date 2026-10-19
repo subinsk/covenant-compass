@@ -4,13 +4,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/core'
 import { Loader2, Wand2, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { buildCovenantRequestBody, DEFAULT_COVENANT_TYPE, DEFAULT_FREQUENCY, type CovenantFormData } from '@/lib/covenants/new-covenant'
 
 export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: boolean; onClose: () => void; facilityId: string }) {
     const router = useRouter()
     const [step, setStep] = useState<'input' | 'review'>('input')
     const [clauseText, setClauseText] = useState('')
     const [isLoading, setIsLoading] = useState(false)
-    const [formData, setFormData] = useState<Record<string, string | number | undefined>>({})
+    const [formData, setFormData] = useState<CovenantFormData>({})
 
     if (!isOpen) return null
 
@@ -23,24 +24,27 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                 body: JSON.stringify({ clauseText })
             })
             const suggestion = await res.json()
-            setFormData(suggestion)
+            setFormData({ ...suggestion, title: suggestion.suggestedTitle })
             setStep('review')
         } catch (e) {
             console.error(e)
             // Fallback empty
-            setFormData({ type: 'FINANCIAL', frequency: 'QUARTERLY' })
+            setFormData({ type: DEFAULT_COVENANT_TYPE, frequency: DEFAULT_FREQUENCY })
             setStep('review')
         } finally {
             setIsLoading(false)
         }
     }
 
+    const body = buildCovenantRequestBody(formData)
+
     const handleSave = async () => {
         setIsLoading(true)
         try {
             const res = await fetch(`/api/facilities/${facilityId}/covenants`, {
                 method: 'POST',
-                body: JSON.stringify(formData)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
             })
             if (res.ok) {
                 router.refresh()
@@ -100,15 +104,15 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                                 <label className="text-xs font-medium text-muted-foreground">Title</label>
                                 <input
                                     className="w-full p-2 rounded-md border text-sm"
-                                    value={formData.suggestedTitle || ''}
-                                    onChange={e => setFormData({ ...formData, suggestedTitle: e.target.value })}
+                                    value={formData.title || ''}
+                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
                                 />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-muted-foreground">Type</label>
                                 <select
                                     className="w-full p-2 rounded-md border text-sm bg-background"
-                                    value={formData.type}
+                                    value={body.type}
                                     onChange={e => setFormData({ ...formData, type: e.target.value })}
                                 >
                                     <option value="FINANCIAL">Financial</option>
@@ -120,7 +124,7 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                                 <label className="text-xs font-medium text-muted-foreground">Frequency</label>
                                 <select
                                     className="w-full p-2 rounded-md border text-sm bg-background"
-                                    value={formData.frequency}
+                                    value={body.frequency}
                                     onChange={e => setFormData({ ...formData, frequency: e.target.value })}
                                 >
                                     <option value="MONTHLY">Monthly</option>
@@ -138,7 +142,7 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                             </div>
                         </div>
 
-                        {formData.type === 'FINANCIAL' && (
+                        {body.type === 'FINANCIAL' && (
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-muted-foreground">Formula & Threshold</label>
                                 <div className="flex gap-2">
@@ -160,7 +164,7 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
 
                         <div className="flex justify-end gap-2 pt-2">
                             <Button variant="ghost" onClick={() => setStep('input')}>Back</Button>
-                            <Button onClick={handleSave} disabled={isLoading}>
+                            <Button onClick={handleSave} disabled={isLoading || !body.title}>
                                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                                 Save Covenant
                             </Button>
