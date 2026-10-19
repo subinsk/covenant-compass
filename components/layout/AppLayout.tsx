@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/components/ui/core'
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children, isBorrower }: { children: React.ReactNode; isBorrower: boolean }) {
     const pathname = usePathname()
     const router = useRouter()
 
@@ -21,12 +21,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // Don't show layout on login
     if (pathname === '/login') return <>{children}</>
 
-    const navItems = [
-        { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-        { href: '/facilities', label: 'Facilities', icon: FileStack },
-        { href: '/calendar', label: 'Calendar', icon: Calendar },
-        { href: '/reports', label: 'Reports', icon: FileText },
-    ]
+    // Borrowers only have the portal; the lender pages redirect them there.
+    const navItems = isBorrower
+        ? [{ href: '/portal', label: 'Portal', icon: LayoutDashboard }]
+        : [
+            { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+            { href: '/facilities', label: 'Facilities', icon: FileStack },
+            { href: '/calendar', label: 'Calendar', icon: Calendar },
+            { href: '/reports', label: 'Reports', icon: FileText },
+        ]
 
     return (
         <div className="min-h-screen flex bg-background">

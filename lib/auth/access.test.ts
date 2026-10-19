@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canAccessFacility, isLender } from './access'
+import { canAccessFacility, facilityScope, isLender, organizationScope } from './access'
 
 const facility = { lenderOrgId: 'bank', borrowerOrgId: 'acme' }
 
@@ -31,5 +31,28 @@ describe('canAccessFacility', () => {
     it('blocks a borrower from another borrower org or the lender side', () => {
         expect(canAccessFacility({ role: 'BORROWER_USER', orgId: 'other-co' }, facility)).toBe(false)
         expect(canAccessFacility({ role: 'BORROWER_USER', orgId: 'bank' }, facility)).toBe(false)
+    })
+})
+
+describe('facilityScope', () => {
+    it('filters lenders by lender org', () => {
+        expect(facilityScope({ role: 'LENDER_ADMIN', orgId: 'bank' })).toEqual({ lenderOrgId: 'bank' })
+        expect(facilityScope({ role: 'LENDER_USER', orgId: 'bank' })).toEqual({ lenderOrgId: 'bank' })
+    })
+
+    it('filters borrowers by borrower org', () => {
+        expect(facilityScope({ role: 'BORROWER_USER', orgId: 'acme' })).toEqual({ borrowerOrgId: 'acme' })
+    })
+})
+
+describe('organizationScope', () => {
+    it('gives lenders their own org plus borrower orgs', () => {
+        expect(organizationScope({ role: 'LENDER_USER', orgId: 'bank' })).toEqual({
+            OR: [{ id: 'bank' }, { type: 'BORROWER' }],
+        })
+    })
+
+    it('gives borrowers only their own org', () => {
+        expect(organizationScope({ role: 'BORROWER_USER', orgId: 'acme' })).toEqual({ id: 'acme' })
     })
 })

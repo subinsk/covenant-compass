@@ -1,20 +1,25 @@
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/auth/session'
+import { facilityScope, isLender } from '@/lib/auth/access'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui/core'
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react'
 import { addDays } from 'date-fns'
 
 // Server Component for Dashboard
 export default async function Dashboard() {
-  // Fetch high-level stats
-  // In a real app we'd filter by logged-in user's org. 
-  // For hackathon/seed demo, we assume we show "Lender View" of everything.
+  const session = await getSession()
+  if (!session) redirect('/login')
+  if (!isLender(session)) redirect('/portal')
 
+  const scope = facilityScope(session)
   const now = new Date()
 
-  const totalFacilities = await prisma.facility.count({ where: { status: 'ACTIVE' } })
+  const totalFacilities = await prisma.facility.count({ where: { ...scope, status: 'ACTIVE' } })
 
   const upcomingOccurrences = await prisma.covenantOccurrence.count({
     where: {
+      facility: scope,
       status: 'PENDING',
       dueDate: {
         gte: now,
@@ -25,18 +30,20 @@ export default async function Dashboard() {
 
   const overdueOccurrences = await prisma.covenantOccurrence.count({
     where: {
+      facility: scope,
       status: 'OVERDUE'
     }
   })
 
   // Calculate On-Time Rate (mock logic or simple math)
-  const completed = await prisma.covenantOccurrence.count({ where: { status: 'COMPLETED' } })
-  const totalClosed = await prisma.covenantOccurrence.count({ where: { status: { in: ['COMPLETED', 'OVERDUE', 'WAIVED'] } } })
+  const completed = await prisma.covenantOccurrence.count({ where: { facility: scope, status: 'COMPLETED' } })
+  const totalClosed = await prisma.covenantOccurrence.count({ where: { facility: scope, status: { in: ['COMPLETED', 'OVERDUE', 'WAIVED'] } } })
   const onTimeRate = totalClosed > 0 ? Math.round((completed / totalClosed) * 100) : 100
 
   // High Risk Facilities (Any with RED status occurrences)
   const highRiskFacilities = await prisma.facility.findMany({
     where: {
+      ...scope,
       occurrences: {
         some: { ragStatus: 'RED' }
       }
@@ -49,6 +56,7 @@ export default async function Dashboard() {
 
   // Recent Activity
   const recentActivity = await prisma.covenantOccurrence.findMany({
+    where: { facility: scope },
     orderBy: { updatedAt: 'desc' },
     take: 5,
     include: { facility: true, covenant: true }

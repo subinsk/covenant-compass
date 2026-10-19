@@ -1,9 +1,17 @@
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/auth/session'
+import { facilityScope, isLender } from '@/lib/auth/access'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui/core'
 import { Download } from 'lucide-react'
 
 export default async function ReportsPage() {
+    const session = await getSession()
+    if (!session) redirect('/login')
+    if (!isLender(session)) redirect('/portal')
+
     const occurrences = await prisma.covenantOccurrence.findMany({
+        where: { facility: facilityScope(session) },
         orderBy: { dueDate: 'asc' },
         include: {
             facility: {

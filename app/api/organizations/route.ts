@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
+import { organizationScope } from '@/lib/auth/access'
 import { OrgType, Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
@@ -14,8 +15,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type')
 
-    const where: Prisma.OrganizationWhereInput = {}
-    if (type) where.type = type as OrgType
+    // Scope first; an optional ?type= narrows within it.
+    const where: Prisma.OrganizationWhereInput = organizationScope(session)
+    if (type && Object.values(OrgType).includes(type as OrgType)) where.type = type as OrgType
 
     const orgs = await prisma.organization.findMany({
         where,
