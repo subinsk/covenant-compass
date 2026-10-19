@@ -110,15 +110,23 @@ describe('relevantText', () => {
         const result = relevantText(agreement)
         expect(result.covenantFound).toBe(true)
         expect(result.parts[0]).toMatchObject({ kind: 'covenant', label: 'SECTION 7.11 Financial Covenants.' })
-        // Direct: Leverage Ratio. Through it: Consolidated Total Debt and Consolidated EBITDA,
-        // but not what those refer to (Indebtedness, Consolidated Net Income, ...).
+        // The whole chain under Leverage Ratio, down to Indebtedness and Consolidated Net Income.
+        // Borrower is a hub term and Unused Term is never referenced, so both stay out.
         expect(result.parts.filter((p) => p.kind === 'definition').map((p) => p.label)).toEqual([
-            'Consolidated EBITDA', 'Consolidated Total Debt', 'Leverage Ratio',
+            'Consolidated EBITDA', 'Consolidated Interest Expense', 'Consolidated Net Income',
+            'Consolidated Total Debt', 'Indebtedness', 'Leverage Ratio',
         ])
         expect(result.text).toContain('greater than 3.50 to 1.00')
         expect(result.text).not.toContain('Unused Term')
-        expect(result.text.length).toBeLessThan(agreement.length / 2)
+        expect(result.text).not.toContain('“Borrower” means')
         for (const p of result.parts) expect(result.text).toContain(agreement.slice(p.start, p.end))
+    })
+
+    it('stops at the requested depth', () => {
+        const result = relevantText(agreement, { depth: 2 })
+        expect(result.parts.filter((p) => p.kind === 'definition').map((p) => p.label)).toEqual([
+            'Consolidated EBITDA', 'Consolidated Total Debt', 'Leverage Ratio',
+        ])
     })
 
     it('drops the least-mentioned definitions to stay under maxChars', () => {
