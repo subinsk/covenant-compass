@@ -95,6 +95,12 @@ enum EntityType {
   FINANCIAL_METRIC
 }
 
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -119,6 +125,8 @@ model User {
   createdFacilities  Facility[]     @relation("CreatedFacilities")
   updatedFacilities  Facility[]     @relation("UpdatedFacilities")
   uploadedDocuments  Document[]
+  extractionRuns     ExtractionRun[]
+  reviewedExtractions ExtractedCovenant[]
 }
 
 model Organization {
@@ -158,6 +166,7 @@ model Facility {
   occurrences     CovenantOccurrence[]
   documents       Document[]
   financialMetrics FinancialMetric[]
+  extractionRuns   ExtractionRun[]
 }
 
 model Covenant {
@@ -180,6 +189,7 @@ model Covenant {
 
   facility    Facility             @relation(fields: [facilityId], references: [id])
   occurrences CovenantOccurrence[]
+  extractions ExtractedCovenant[]
 }
 
 model CovenantOccurrence {
@@ -255,4 +265,52 @@ model AuditLog {
   details           Json?
 
   performedBy User @relation(fields: [performedByUserId], references: [id])
+}
+
+// One run of covenant extraction over a credit agreement for a facility.
+model ExtractionRun {
+  id              String   @id @default(uuid())
+  facilityId      String
+  sourceUrl       String
+  model           String
+  promptChars     Int
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  facility  Facility            @relation(fields: [facilityId], references: [id])
+  createdBy User?               @relation(fields: [createdByUserId], references: [id])
+  items     ExtractedCovenant[]
+}
+
+// A covenant the model extracted, waiting for a lender to approve or reject it.
+// limit is a Float: it is a model-reported ratio (e.g. 3.5), compared and displayed, never summed as money.
+model ExtractedCovenant {
+  id                String       @id @default(uuid())
+  runId             String
+  name              String
+  metric            String
+  operator          String
+  limit             Float
+  stepDowns         Json?
+  numerator         String?
+  denominator       String?
+  quote             String
+  citationStart     Int?
+  citationEnd       Int?
+  page              Int?
+  verified          Boolean
+  limitInQuote      Boolean
+  operatorCorrected Boolean
+  directionConflict Boolean
+  status            ReviewStatus @default(PENDING)
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  covenantId        String?
+
+  run        ExtractionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  reviewedBy User?         @relation(fields: [reviewedByUserId], references: [id])
+  covenant   Covenant?     @relation(fields: [covenantId], references: [id])
+
+  @@index([runId])
+  @@index([status])
 }

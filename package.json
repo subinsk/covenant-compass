@@ -16,6 +16,7 @@
     "agreement:clauses": "tsx scripts/agreement-clauses.ts",
     "definitions:graph": "tsx scripts/definitions-graph.ts",
     "extract:covenants": "tsx scripts/extract-covenants.ts",
+    "extract:facility": "tsx scripts/extract-to-facility.ts",
     "eval:extraction": "tsx scripts/eval-extraction.ts",
     "xbrl:financials": "tsx scripts/xbrl-financials.ts",
     "mcp": "tsx mcp/server.ts"

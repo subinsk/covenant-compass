@@ -30,6 +30,8 @@ async function main() {
     // Cleanup
     await prisma.notification.deleteMany()
     await prisma.document.deleteMany()
+    await prisma.extractedCovenant.deleteMany()
+    await prisma.extractionRun.deleteMany()
     await prisma.covenantOccurrence.deleteMany()
     await prisma.covenant.deleteMany()
     await prisma.facility.deleteMany()
