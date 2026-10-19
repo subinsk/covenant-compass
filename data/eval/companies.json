@@ -219,19 +219,19 @@
         ]
     },
     {
-        "ticker": "DXPE",
-        "name": "DXP Enterprises",
-        "cik": "1020710",
+        "ticker": "CON",
+        "name": "Concentra Group Holdings",
+        "cik": "2014596",
         "periodEnd": "2026-06-30",
         "covenantEbitdaReconciliation": false,
         "covenants": [
-            { "name": "Secured Leverage Ratio", "operator": "<", "limit": 5.75, "actual": 2.3, "note": "Term loan maintenance covenant" },
-            { "name": "Fixed Charge Coverage Ratio", "operator": ">=", "limit": 1.0, "actual": 2.97, "note": "ABL springing covenant" }
+            { "name": "Total Net Leverage Ratio", "operator": "<=", "limit": 6.5, "actual": 2.99, "note": "Tested on Compliance Dates (revolver lenders only)" }
         ],
-        "source": "https://www.sec.gov/Archives/edgar/data/1020710/000162828026054179/dxpe-20260630.htm",
+        "source": "https://www.sec.gov/Archives/edgar/data/2014596/000201459626000056/cghp-20260630.htm",
         "agreements": [
-            "https://www.sec.gov/Archives/edgar/data/1020710/000162828025058553/dxp-amendmentno4totermlo.htm",
-            "https://www.sec.gov/Archives/edgar/data/1020710/000162828026047831/creditagreement.htm"
-        ]
+            "https://www.sec.gov/Archives/edgar/data/2014596/000201459625000009/amendment1creditagreemen.htm",
+            "https://www.sec.gov/Archives/edgar/data/2014596/000110465924084490/tm248173d18_ex10-5.htm"
+        ],
+        "notes": "Replaces DXP Enterprises, whose term loan amendment marks deletions only in page images, so its text mixes old and new limits."
     }
 ]

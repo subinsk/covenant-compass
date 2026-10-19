@@ -3,6 +3,7 @@ import raw from '@/data/eval/companies.json'
 
 // Ground truth for the eval set: covenant limits and actual ratios that each
 // company disclosed in a 10-Q, with links to the filing and its credit agreement.
+// `agreements` is ordered newest first; the eval keeps the first match when merging.
 
 const covenantSchema = z.object({
     name: z.string(),
