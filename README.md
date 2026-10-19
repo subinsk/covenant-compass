@@ -67,10 +67,21 @@ The repo has no migration history yet, so `prisma db push` creates the schema. T
 | `LLM_BASE_URL` | Base URL of an OpenAI-compatible API, e.g. `http://localhost:11434/v1/` for Ollama or `https://api.groq.com/openai/v1` for Groq. |
 | `LLM_API_KEY` | API key for that endpoint. Ollama ignores it, but it must be non-empty. |
 | `LLM_MODEL` | Model name, e.g. `qwen3:4b` on Ollama or `openai/gpt-oss-20b` on Groq. |
+| `LLM_TIMEOUT_MS` | Optional request timeout. Raise it for slow local models; Node's fetch otherwise gives up after 5 minutes. |
 | `LLM_REASONING_EFFORT` | Optional `low`, `medium` or `high`; sent only when set. |
 | `LLM_CACHE` | Optional; `1` caches LLM responses on disk in `.cache/llm` (or `LLM_CACHE_DIR`). For development. |
 | `SEC_USER_AGENT` | Required by SEC for EDGAR requests: a name and contact email, e.g. `Covenant Compass you@example.com`. |
 | `EDGAR_CACHE_DIR` | Optional EDGAR response cache directory (default `.cache/edgar`). |
+
+### Running a local model with Ollama
+
+Ollama's default context window is 4,096 tokens and it silently drops the start of longer prompts, which removes the instructions and covenant text. Extraction prompts are up to about 15,000 tokens, so start Ollama with a larger window:
+
+```
+OLLAMA_CONTEXT_LENGTH=16384 ollama serve
+```
+
+On a laptop CPU, a 4B model reads prompts at roughly 20 tokens/second, so one agreement takes several minutes. Set `LLM_TIMEOUT_MS` accordingly, or use a hosted endpoint for full eval runs.
 
 ### Demo login
 
