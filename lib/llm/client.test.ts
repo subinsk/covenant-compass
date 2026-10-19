@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { chat } from './client'
+import { chat, timeoutDispatcher } from './client'
 
 function okResponse(content: string) {
     return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
@@ -97,5 +97,21 @@ describe('chat cache', () => {
 
         expect(await chat([{ role: 'user', content: 'bye' }])).toBe('second')
         expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+})
+
+describe('timeoutDispatcher', () => {
+    it('returns no dispatcher when unset or invalid', () => {
+        expect(timeoutDispatcher(undefined)).toEqual({})
+        expect(timeoutDispatcher('')).toEqual({})
+        expect(timeoutDispatcher('abc')).toEqual({})
+        expect(timeoutDispatcher('-5')).toEqual({})
+    })
+
+    it('returns one shared dispatcher per timeout value', () => {
+        const a = timeoutDispatcher('1800000')
+        expect(a.dispatcher).toBeDefined()
+        expect(timeoutDispatcher('1800000').dispatcher).toBe(a.dispatcher)
+        expect(timeoutDispatcher('60000').dispatcher).not.toBe(a.dispatcher)
     })
 })

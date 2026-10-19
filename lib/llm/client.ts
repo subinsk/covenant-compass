@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { Agent } from 'undici'
 
 // Minimal client for OpenAI-compatible chat completions (Ollama locally, Groq in production).
 // Set LLM_CACHE=1 in development to cache responses on disk (LLM_CACHE_DIR, default .cache/llm).
+// Node's fetch gives up waiting for response headers after 5 minutes. A local model on a CPU
+// can take longer than that just to read a long prompt, so LLM_TIMEOUT_MS can raise the limit.
 
 export type ChatMessage = {
     role: 'system' | 'user' | 'assistant'
@@ -43,7 +46,8 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
             Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify(body),
-    })
+        ...timeoutDispatcher(process.env.LLM_TIMEOUT_MS),
+    } as RequestInit)
 
     if (!res.ok) {
         const text = await res.text().catch(() => '')
@@ -59,6 +63,15 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
         await writeFile(cacheFile, JSON.stringify({ content }))
     }
     return content
+}
+
+const agents = new Map<number, Agent>()
+
+export function timeoutDispatcher(value: string | undefined): { dispatcher?: Agent } {
+    const ms = Number(value)
+    if (!value || !Number.isFinite(ms) || ms <= 0) return {}
+    if (!agents.has(ms)) agents.set(ms, new Agent({ headersTimeout: ms, bodyTimeout: ms }))
+    return { dispatcher: agents.get(ms) }
 }
 
 function cachePath(key: unknown) {
