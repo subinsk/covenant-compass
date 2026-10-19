@@ -1,5 +1,5 @@
 import { PrismaClient, Frequency, Importance, OwnerRole, UserRole, OrgType, FacilityStatus, CovenantType, OccurrenceStatus, RagStatus } from '@prisma/client'
-import { addDays, subDays, addMonths, subMonths, startOfYear } from 'date-fns'
+import { addDays, subDays, addMonths, subMonths } from 'date-fns'
 import 'dotenv/config'
 import { hashPassword } from '../lib/auth/password'
 

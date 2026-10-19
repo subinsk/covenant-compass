@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
-import { Covenant, Facility, Frequency, OccurrenceStatus, RagStatus } from '@prisma/client'
-import { addMonths, addQuarters, addYears, addDays, startOfDay, isBefore, isAfter } from 'date-fns'
+import { OccurrenceStatus, RagStatus } from '@prisma/client'
+import { addMonths, addYears, addDays, startOfDay, isBefore, isAfter } from 'date-fns'
 
 export async function generateScheduleForCovenant(covenantId: string) {
     const covenant = await prisma.covenant.findUnique({

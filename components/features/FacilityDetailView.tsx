@@ -2,10 +2,15 @@
 
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/components/ui/core'
-import { Plus, Check, AlertTriangle, FileText, Calendar as CalendarIcon } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { AddCovenantModal } from './AddCovenantModal'
+import type { Prisma } from '@prisma/client'
 
-export default function FacilityDetailView({ facility }: { facility: any }) {
+type FacilityWithDetails = Prisma.FacilityGetPayload<{
+    include: { lender: true; borrower: true; covenants: true; occurrences: { include: { covenant: true } } }
+}>
+
+export default function FacilityDetailView({ facility }: { facility: FacilityWithDetails }) {
     const [activeTab, setActiveTab] = useState('overview')
     const [isaddModalOpen, setIsAddModalOpen] = useState(false)
 
@@ -113,7 +118,7 @@ export default function FacilityDetailView({ facility }: { facility: any }) {
                                             </td>
                                         </tr>
                                     ) : (
-                                        facility.covenants.map((cov: any) => (
+                                        facility.covenants.map((cov) => (
                                             <tr key={cov.id}>
                                                 <td className="p-4 font-medium">{cov.title}</td>
                                                 <td className="p-4"><Badge variant="outline">{cov.type}</Badge></td>
@@ -145,12 +150,12 @@ export default function FacilityDetailView({ facility }: { facility: any }) {
                                     {facility.occurrences.length === 0 ? (
                                         <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No schedule generated yet.</td></tr>
                                     ) : (
-                                        facility.occurrences.map((occ: any) => (
+                                        facility.occurrences.map((occ) => (
                                             <tr key={occ.id}>
                                                 <td className="p-4">{new Date(occ.dueDate).toLocaleDateString()}</td>
                                                 <td className="p-4">
                                                     <span className="font-medium">{occ.covenant.title}</span>
-                                                    <div className="text-xs text-muted-foreground">{new Date(occ.periodStartDate).toLocaleDateString()} - {new Date(occ.periodEndDate).toLocaleDateString()}</div>
+                                                    <div className="text-xs text-muted-foreground">{new Date(occ.periodStartDate ?? 0).toLocaleDateString()} - {new Date(occ.periodEndDate ?? 0).toLocaleDateString()}</div>
                                                 </td>
                                                 <td className="p-4">
                                                     <Badge variant={occ.status === 'COMPLETED' ? 'success' : occ.status === 'OVERDUE' ? 'destructive' : 'secondary'}>

@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyToken } from '@/lib/auth/jwt'
-import { cookies } from 'next/headers'
-import { FacilityStatus } from '@prisma/client'
+import { getSession } from '@/lib/auth/session'
+import { isLender } from '@/lib/auth/access'
+import { FacilityStatus, Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('token')?.value
-    const userPayload = await verifyToken(token || '') as any
+    const session = await getSession()
 
-    if (!userPayload) {
+    if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -17,16 +15,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
 
-    // Basic filtering logic based on user role
-    const where: any = {}
-
-    if (userPayload.role.includes('LENDER')) {
-        // Lender sees facilities where they are the lenderOrg
-        where.lenderOrgId = userPayload.orgId
-    } else {
-        // Borrower sees facilities where they are the borrowerOrg
-        where.borrowerOrgId = userPayload.orgId
-    }
+    // Lenders see facilities their org lends on; borrowers, facilities their org borrows on
+    const where: Prisma.FacilityWhereInput = isLender(session)
+        ? { lenderOrgId: session.orgId }
+        : { borrowerOrgId: session.orgId }
 
     if (status) {
         where.status = status as FacilityStatus
@@ -51,16 +43,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('token')?.value
-    const userPayload = await verifyToken(token || '') as any
+    const session = await getSession()
 
-    if (!userPayload) {
+    if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Only lenders can create facilities (business rule assumption)
-    if (!userPayload.role.includes('LENDER')) {
+    if (!isLender(session)) {
         return NextResponse.json({ error: 'Only lenders can create facilities' }, { status: 403 })
     }
 
@@ -75,7 +65,7 @@ export async function POST(request: Request) {
             data: {
                 name: body.name,
                 facilityReference: body.facilityReference || `REF-${Date.now()}`,
-                lenderOrgId: userPayload.orgId,
+                lenderOrgId: session.orgId,
                 borrowerOrgId: body.borrowerOrgId,
                 currency: body.currency,
                 totalCommitment: body.totalCommitment,
@@ -83,8 +73,8 @@ export async function POST(request: Request) {
                 endDate: new Date(body.endDate),
                 status: FacilityStatus.ACTIVE,
                 description: body.description,
-                createdByUserId: userPayload.userId,
-                updatedByUserId: userPayload.userId
+                createdByUserId: session.userId,
+                updatedByUserId: session.userId
             }
         })
 

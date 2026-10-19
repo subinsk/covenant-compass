@@ -3,9 +3,12 @@
 import { useState } from 'react'
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, format, startOfWeek, endOfWeek } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/components/ui/core'
-import { ChevronLeft, ChevronRight, Circle } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import type { Prisma } from '@prisma/client'
 
-export default function CalendarView({ occurrences }: { occurrences: any[] }) {
+type CalendarOccurrence = Prisma.CovenantOccurrenceGetPayload<{ include: { facility: true; covenant: true } }>
+
+export default function CalendarView({ occurrences }: { occurrences: CalendarOccurrence[] }) {
     const [currentDate, setCurrentDate] = useState(new Date())
     const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
 
@@ -64,7 +67,7 @@ export default function CalendarView({ occurrences }: { occurrences: any[] }) {
                                         </span>
 
                                         <div className="flex flex-wrap gap-1 mt-auto w-full">
-                                            {events.slice(0, 4).map((evt: any) => (
+                                            {events.slice(0, 4).map((evt) => (
                                                 <div
                                                     key={evt.id}
                                                     className={`w-2 h-2 rounded-full ${evt.ragStatus === 'RED' ? 'bg-red-500' :
@@ -93,7 +96,7 @@ export default function CalendarView({ occurrences }: { occurrences: any[] }) {
                             <p className="text-muted-foreground text-sm">No obligations due on this day.</p>
                         ) : (
                             <div className="space-y-4">
-                                {selectedDayEvents.map((evt: any) => (
+                                {selectedDayEvents.map((evt) => (
                                     <div key={evt.id} className="border-b last:border-0 pb-3">
                                         <div className="flex justify-between items-start mb-1">
                                             <p className="font-medium text-sm line-clamp-2">{evt.covenant.title}</p>

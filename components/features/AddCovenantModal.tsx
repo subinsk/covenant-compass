@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Input, Card, CardContent, Badge } from '@/components/ui/core' // Assuming Input is in core, if not I need to add it or use raw input
+import { Button } from '@/components/ui/core'
 import { Loader2, Wand2, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -10,7 +10,7 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
     const [step, setStep] = useState<'input' | 'review'>('input')
     const [clauseText, setClauseText] = useState('')
     const [isLoading, setIsLoading] = useState(false)
-    const [formData, setFormData] = useState<any>({})
+    const [formData, setFormData] = useState<Record<string, string | number | undefined>>({})
 
     if (!isOpen) return null
 

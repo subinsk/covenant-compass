@@ -1,13 +1,25 @@
 import { NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/auth/jwt'
-import { cookies } from 'next/headers'
+import { getSession } from '@/lib/auth/session'
+import type { CovenantType, Frequency, Importance } from '@prisma/client'
+
+type CovenantSuggestion = {
+    type: CovenantType
+    frequency: Frequency
+    dueRule: string
+    graceDays: number
+    importance: Importance
+    suggestedTitle: string
+    category: string
+    metricFormula?: string
+    thresholdCondition?: string
+}
 
 // Mocking AI behavior with Heuristics/Regex for demo reliability without API keys
 function heuristicParse(text: string) {
     const lower = text.toLowerCase()
 
     // Default suggestion
-    const suggestion: any = {
+    const suggestion: CovenantSuggestion = {
         type: 'GENERAL',
         frequency: 'ANNUAL',
         dueRule: '30 days after period end',
@@ -55,11 +67,9 @@ function heuristicParse(text: string) {
 }
 
 export async function POST(request: Request) {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('token')?.value
-    const userPayload = await verifyToken(token || '')
+    const session = await getSession()
 
-    if (!userPayload) {
+    if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -72,7 +82,7 @@ export async function POST(request: Request) {
         const suggestion = heuristicParse(clauseText || '')
 
         return NextResponse.json(suggestion)
-    } catch (e) {
+    } catch {
         return NextResponse.json({ error: 'Failed to parse' }, { status: 500 })
     }
 }
