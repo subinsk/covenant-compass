@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -51,6 +51,24 @@ describe('edgarFetch', () => {
         expect(await edgarJson('https://data.sec.gov/b')).toEqual({ x: 1 })
         expect(await edgarJson('https://data.sec.gov/b')).toEqual({ x: 1 })
         expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('refetches a cached response older than maxAgeMs', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response('old', { status: 200 }))
+            .mockResolvedValueOnce(new Response('new', { status: 200 }))
+        vi.stubGlobal('fetch', fetchMock)
+
+        expect(await edgarFetch('https://data.sec.gov/c', { maxAgeMs: 1000 })).toBe('old')
+        expect(await edgarFetch('https://data.sec.gov/c', { maxAgeMs: 1000 })).toBe('old')
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+
+        const [file] = await readdir(dir)
+        const twoSecondsAgo = new Date(Date.now() - 2000)
+        await utimes(path.join(dir, file), twoSecondsAgo, twoSecondsAgo)
+
+        expect(await edgarFetch('https://data.sec.gov/c', { maxAgeMs: 1000 })).toBe('new')
+        expect(fetchMock).toHaveBeenCalledTimes(2)
     })
 
     it('retries on 429 and then succeeds', async () => {
