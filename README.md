@@ -74,12 +74,11 @@ The repo has no migration history yet, so `prisma db push` creates the schema. T
 
 ### Demo login
 
-The seed creates one lender organization with these users, all with the password `secret`:
+The seed creates these users, all with the password `secret`:
 
 - `alice@acmecapital.com` (lender admin)
 - `user0@acmecapital.com` to `user4@acmecapital.com` (lender users)
-
-The seed creates no borrower users, so the borrower portal (`/portal`) has no demo login.
+- `bob@globex.com` (borrower user for Globex; sees only Globex's obligations in the borrower portal at `/portal`)
 
 ### Scripts
 

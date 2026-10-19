@@ -57,6 +57,11 @@ async function main() {
         })
     }
 
+    // A borrower user for the portal (Globex is the first borrower organization)
+    await prisma.user.create({
+        data: { name: 'Bob Borrower', email: 'bob@globex.com', passwordHash: demoPasswordHash, role: UserRole.BORROWER_USER, organizationId: borrowers[0].id }
+    })
+
     // 3. Facilities
     const facilities = []
     const now = new Date()
