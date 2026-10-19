@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { organizationScope } from '@/lib/auth/access'
-import { OrgType, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
+import { invalidInput, queryParams } from '@/lib/validation/http'
+import { organizationQuerySchema } from '@/lib/validation/organization'
 
 export async function GET(request: Request) {
     const session = await getSession()
@@ -12,12 +14,12 @@ export async function GET(request: Request) {
     }
 
     // Allow getting orgs usage for dropdowns
-    const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type')
+    const query = organizationQuerySchema.safeParse(queryParams(request.url))
+    if (!query.success) return invalidInput(query.error)
 
     // Scope first; an optional ?type= narrows within it.
     const where: Prisma.OrganizationWhereInput = organizationScope(session)
-    if (type && Object.values(OrgType).includes(type as OrgType)) where.type = type as OrgType
+    if (query.data.type) where.type = query.data.type
 
     const orgs = await prisma.organization.findMany({
         where,
