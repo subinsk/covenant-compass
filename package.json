@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts",
     "edgar:exhibits": "tsx scripts/edgar-exhibits.ts",
     "agreement:text": "tsx scripts/agreement-text.ts",
     "agreement:sections": "tsx scripts/agreement-sections.ts",

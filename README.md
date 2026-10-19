@@ -153,6 +153,8 @@ npm run typecheck
 
 Tests cover the parts where mistakes are costly: HTML-to-text conversion and page offsets, section, definition and clause finding, the definition graph, quote location, the LLM client's JSON validation and retry, the EDGAR client's caching and retries, the eval set's schema, and the auth checks (JWT, passwords, cron secret). Tests use small fixtures and mocked `fetch`; they don't call EDGAR or an LLM.
 
+Integration tests (`*.int.test.ts`) run against a real Postgres and check that one organization can't read another's facilities, covenants, occurrences or organizations through the API routes and query scopes. `npm test` skips them. To run them, create an empty database whose name ends in `_test` and point `DATABASE_URL_TEST` at it: `DATABASE_URL_TEST=postgresql://postgres@localhost:5432/covenant_compass_test npm run test:int`. The schema is reset with `prisma db push --force-reset` at the start of every run. CI runs them against a Postgres service container.
+
 GitHub Actions runs `npm ci`, `prisma generate`, lint, typecheck and tests on every pull request and on pushes to `main` ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 ## Evaluation set
