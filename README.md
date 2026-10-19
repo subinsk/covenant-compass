@@ -106,8 +106,9 @@ The seed creates these users, all with the password `secret`:
 | `npm run agreement:clauses -- [TICKER ...]` | Split eval companies' covenant sections into sentences and print samples. |
 | `npm run definitions:graph -- <exhibit-url> [term] [depth]` | Print the definitions a term is built from and any circular definitions. |
 | `npm run extract:covenants -- <ticker>` | Run LLM extraction on an eval company's agreements and print the result next to the expected limits. |
+| `npm run extract:facility -- <facilityId> <exhibit-url>` | Run LLM extraction on an agreement and save the covenants found to the facility as a run waiting for review. |
 
-The EDGAR scripts need `SEC_USER_AGENT`; `extract:covenants` also needs the `LLM_*` variables.
+The EDGAR scripts need `SEC_USER_AGENT`; `extract:covenants` and `extract:facility` also need the `LLM_*` variables.
 
 ## MCP server
 
