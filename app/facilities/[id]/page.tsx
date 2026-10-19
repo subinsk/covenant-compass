@@ -26,5 +26,5 @@ export default async function FacilityPage({ params }: { params: Promise<{ id: s
 
     if (!facility || !canAccessFacility(session, facility)) return notFound()
 
-    return <FacilityDetailView facility={facility} />
+    return <FacilityDetailView facility={{ ...facility, totalCommitment: facility.totalCommitment.toString() }} />
 }
