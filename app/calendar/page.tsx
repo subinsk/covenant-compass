@@ -12,9 +12,11 @@ export default async function CalendarPage() {
     // In a real app we might filter by range, but for MVP fetching all is fine (< 1000 usually)
     const occurrences = await prisma.covenantOccurrence.findMany({
         where: { facility: facilityScope(session) },
+        // Only the fields the calendar shows: whole facility rows carry a Decimal
+        // (totalCommitment), which can't be passed to a client component.
         include: {
-            facility: true,
-            covenant: true
+            facility: { select: { id: true, name: true } },
+            covenant: { select: { id: true, title: true } }
         },
         orderBy: { dueDate: 'asc' }
     })

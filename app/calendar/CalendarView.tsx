@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/compo
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Prisma } from '@prisma/client'
 
-type CalendarOccurrence = Prisma.CovenantOccurrenceGetPayload<{ include: { facility: true; covenant: true } }>
+type CalendarOccurrence = Prisma.CovenantOccurrenceGetPayload<{
+    include: { facility: { select: { id: true, name: true } }; covenant: { select: { id: true, title: true } } }
+}>
 
 export default function CalendarView({ occurrences }: { occurrences: CalendarOccurrence[] }) {
     const [currentDate, setCurrentDate] = useState(new Date())
