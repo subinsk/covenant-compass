@@ -2,7 +2,7 @@
 // covenant testing: the definitions, the financial covenant sections and the
 // negative covenants. Offsets index into the same text, so they can be cited.
 
-import { buildDefinitionGraph, countTerms, dependencies } from './graph'
+import { buildDefinitionGraph, countTerms, dependencies, type DefinitionGraph } from './graph'
 
 export type SectionKind = 'definitions' | 'financial-covenants' | 'negative-covenants' | 'other'
 
@@ -197,7 +197,16 @@ export function findDefinitions(text: string, section?: Pick<Section, 'start' | 
 // graph) the definitions those mention, e.g. "Leverage Ratio" -> "Consolidated
 // EBITDA". depth counts these levels; by default deeper chains (what
 // "Consolidated EBITDA" itself refers to) are not followed.
-export function relevantText(text: string, { maxChars = 60_000, depth = 2 }: { maxChars?: number, depth?: number } = {}) {
+// Parties, documents and boilerplate terms that nearly every definition mentions.
+// Following them pulls in most of the agreement without helping compute a ratio.
+export const HUB_TERMS = new Set([
+    'Administrative Agent', 'Agent', 'Agreement', 'Borrower', 'Borrowers', 'Business Day', 'Closing Date',
+    'Collateral Agent', 'Credit Party', 'Credit Parties', 'Default', 'Event of Default', 'GAAP', 'Governmental Authority',
+    'Guarantor', 'Guarantors', 'Holdings', 'Lender', 'Lenders', 'Loan', 'Loans', 'Loan Document', 'Loan Documents',
+    'Loan Party', 'Loan Parties', 'Obligations', 'Parent', 'Person', 'Required Lenders', 'Subsidiary', 'Subsidiaries',
+])
+
+export function relevantText(text: string, { maxChars = 60_000, depth = 4 }: { maxChars?: number, depth?: number } = {}) {
     const sections = findSections(text)
     const covenantRanges = mergeRanges(sections.filter((s) => s.kind === 'financial-covenants'))
     const definitions = uniqueByTerm(findDefinitions(text, definitionsSection(sections)))
@@ -217,7 +226,7 @@ export function relevantText(text: string, { maxChars = 60_000, depth = 2 }: { m
     }
 
     if (parts.length > 0 && depth > 0) {
-        const graph = buildDefinitionGraph(text, definitions)
+        const graph = withoutHubs(buildDefinitionGraph(text, definitions))
         const covenantText = parts.map((p) => text.slice(p.start, p.end)).join('\n')
         const direct = [...countTerms(covenantText, [...graph.keys()]).keys()].filter((term) => add(term, graph.get(term)!))
         for (const dep of dependencies(graph, direct, { maxDepth: depth - 1 })) add(dep.term, graph.get(dep.term)!)
@@ -233,6 +242,14 @@ export function relevantText(text: string, { maxChars = 60_000, depth = 2 }: { m
         covenantFound: covenantRanges.length > 0,
         definitionsFound: definitions.length,
     }
+}
+
+function withoutHubs(graph: DefinitionGraph): DefinitionGraph {
+    const pruned: DefinitionGraph = new Map()
+    for (const [term, node] of graph) {
+        if (!HUB_TERMS.has(term)) pruned.set(term, { ...node, refs: node.refs.filter((r) => !HUB_TERMS.has(r)) })
+    }
+    return pruned
 }
 
 function splitLines(text: string) {
