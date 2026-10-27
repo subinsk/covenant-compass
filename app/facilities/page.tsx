@@ -110,16 +110,15 @@ export default async function FacilitiesPage({ searchParams }: { searchParams: P
                             )}
                         </div>
                     ) : (
-                        <div className="relative w-full overflow-x-auto">
-                            <table className="w-full text-sm text-left">
+                        <table className="w-full text-sm text-left">
                                 <thead className="bg-muted/50 border-b">
                                     <tr>
                                         <SortHeader current={current} sort="name" label="Facility" />
-                                        <SortHeader current={current} sort="borrower" label="Borrower" />
+                                        <SortHeader current={current} sort="borrower" label="Borrower" className="hidden lg:table-cell" />
                                         <SortHeader current={current} sort="commitment" label="Commitment" align="right" />
                                         <SortHeader current={current} sort="status" label="Status" />
-                                        <SortHeader current={current} sort="covenants" label="Covenants" align="right" />
-                                        <SortHeader current={current} sort="updated" label="Updated" />
+                                        <SortHeader current={current} sort="covenants" label="Covenants" align="center" className="hidden md:table-cell" />
+                                        <SortHeader current={current} sort="updated" label="Updated" className="hidden xl:table-cell" />
                                         <th className="w-10" />
                                     </tr>
                                 </thead>
@@ -127,10 +126,10 @@ export default async function FacilitiesPage({ searchParams }: { searchParams: P
                                     {facilities.map((facility, i) => (
                                         <tr
                                             key={facility.id}
-                                            className="group relative transition-colors hover:bg-accent/60 animate-fade-up"
+                                            className="group relative transition-colors hover:bg-accent/60 animate-fade-in"
                                             style={{ animationDelay: `${160 + i * 30}ms` }}
                                         >
-                                            <td className="px-4 py-3">
+                                            <td className="w-full max-w-0 px-4 py-3">
                                                 <div className="flex items-center gap-3">
                                                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary transition-transform group-hover:scale-105">
                                                         {facility.name.charAt(0).toUpperCase()}
@@ -147,15 +146,15 @@ export default async function FacilitiesPage({ searchParams }: { searchParams: P
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">{facility.borrower.name}</td>
+                                            <td className="hidden lg:table-cell px-4 py-3 whitespace-nowrap">{facility.borrower.name}</td>
                                             <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
                                                 {new Intl.NumberFormat('en-US', { style: 'currency', currency: facility.currency, maximumFractionDigits: 0 }).format(Number(facility.totalCommitment))}
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3 whitespace-nowrap">
                                                 <Badge variant={STATUS_BADGE[facility.status]}>{STATUS_LABEL[facility.status]}</Badge>
                                             </td>
-                                            <td className="px-4 py-3 text-right tabular-nums">{facility._count.covenants}</td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-muted-foreground" title={facility.updatedAt.toLocaleString()}>
+                                            <td className="hidden md:table-cell px-4 py-3 text-center tabular-nums">{facility._count.covenants}</td>
+                                            <td className="hidden xl:table-cell px-4 py-3 whitespace-nowrap text-muted-foreground" title={facility.updatedAt.toLocaleString()}>
                                                 {formatDistanceToNow(facility.updatedAt, { addSuffix: true })}
                                             </td>
                                             <td className="px-2 py-3">
@@ -164,14 +163,13 @@ export default async function FacilitiesPage({ searchParams }: { searchParams: P
                                         </tr>
                                     ))}
                                 </tbody>
-                            </table>
-                        </div>
+                        </table>
                     )}
                 </CardContent>
 
                 {total > 0 && (
-                    <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2 border-t px-4 py-3 sm:grid sm:grid-cols-[1fr_auto_1fr]">
+                        <p className="text-sm text-muted-foreground sm:justify-self-start">
                             Showing <span className="font-medium text-foreground">{from}–{to}</span> of <span className="font-medium text-foreground">{total}</span>
                         </p>
                         <Pagination current={current} totalPages={totalPages} />
@@ -200,12 +198,18 @@ function FilterChip({ href, active, label, count }: { href: string; active: bool
     )
 }
 
-function SortHeader({ current, sort, label, align = 'left' }: { current: FacilityListParams; sort: FacilitySort; label: string; align?: 'left' | 'right' }) {
+function SortHeader({ current, sort, label, align = 'left', className }: {
+    current: FacilityListParams
+    sort: FacilitySort
+    label: string
+    align?: 'left' | 'center' | 'right'
+    className?: string
+}) {
     const active = current.sort === sort
     const Icon = !active ? ArrowUpDown : current.dir === 'asc' ? ArrowUp : ArrowDown
     return (
         <th
-            className={cn('h-11 px-4 font-medium text-muted-foreground whitespace-nowrap', align === 'right' && 'text-right')}
+            className={cn('h-11 px-4 font-medium text-muted-foreground whitespace-nowrap', align === 'center' && 'text-center', align === 'right' && 'text-right', className)}
             aria-sort={active ? (current.dir === 'asc' ? 'ascending' : 'descending') : undefined}
         >
             <Link
