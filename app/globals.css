@@ -36,6 +36,7 @@
   --animate-fade-up: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   --animate-fade-in: fade-in 0.4s ease-out backwards;
   --animate-pop-in: pop-in 0.15s ease-out backwards;
+  --animate-slide-in-right: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   --animate-grow-x: grow-x 1s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 
   @keyframes fade-up {
@@ -59,6 +60,12 @@
     from {
       opacity: 0;
       transform: translateY(-4px) scale(0.98);
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
     }
   }
 

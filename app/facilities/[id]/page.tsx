@@ -31,9 +31,17 @@ export default async function FacilityPage({ params, searchParams }: {
 
     if (!facility || !canAccessFacility(session, facility)) return notFound()
 
+    // Formatted here: Node and browsers can disagree on compact number output,
+    // which would break hydration if the client formatted it again.
+    const money = (compact: boolean) => new Intl.NumberFormat('en-US', {
+        style: 'currency', currency: facility.currency, maximumFractionDigits: compact ? 1 : 0, notation: compact ? 'compact' : 'standard',
+    }).format(Number(facility.totalCommitment))
+
     return <FacilityDetailView
         facility={{ ...facility, totalCommitment: facility.totalCommitment.toString() }}
         initialTab={tab}
         canManage={isLender(session)}
+        now={new Date().toISOString()}
+        commitment={{ compact: money(true), full: money(false) }}
     />
 }

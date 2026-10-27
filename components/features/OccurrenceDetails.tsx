@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Loader2, X } from 'lucide-react'
 import { Badge, Button } from '@/components/ui/core'
+import { format } from 'date-fns'
 import { formatPeriod } from '@/lib/format/period'
 import type { OccurrenceAction } from '@/lib/occurrences/transitions'
 import type { FacilityView } from './FacilityDetailView'
@@ -35,6 +36,12 @@ export function OccurrenceDetails({ occurrence, canManage, onClose }: {
 
     const isOpen = occurrence.status === 'PENDING' || occurrence.status === 'OVERDUE'
 
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [onClose])
+
     async function act(action: OccurrenceAction) {
         setBusy(true)
         setError(null)
@@ -60,9 +67,9 @@ export function OccurrenceDetails({ occurrence, canManage, onClose }: {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={onClose}>
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-[2px] animate-fade-in" onClick={onClose}>
             <aside
-                className="bg-background w-full max-w-md h-full overflow-y-auto border-l shadow-lg p-6 space-y-6"
+                className="bg-background w-full max-w-md h-full overflow-y-auto border-l shadow-2xl p-6 space-y-6 animate-slide-in-right"
                 onClick={e => e.stopPropagation()}
                 aria-label="Obligation details"
             >
@@ -77,14 +84,14 @@ export function OccurrenceDetails({ occurrence, canManage, onClose }: {
                 </div>
 
                 <div className="space-y-3 text-sm">
-                    <Row label="Due date">{new Date(occurrence.dueDate).toLocaleDateString()}</Row>
+                    <Row label="Due date">{format(new Date(occurrence.dueDate), 'd MMM yyyy')}</Row>
                     <Row label="Status">
                         <Badge variant={occurrence.status === 'COMPLETED' ? 'success' : occurrence.status === 'OVERDUE' ? 'destructive' : 'secondary'}>
                             {occurrence.status}
                         </Badge>
                     </Row>
                     <Row label="RAG"><Badge variant={RAG_VARIANT[occurrence.ragStatus]}>{occurrence.ragStatus}</Badge></Row>
-                    <Row label="Completed">{occurrence.completionDate ? new Date(occurrence.completionDate).toLocaleDateString() : '—'}</Row>
+                    <Row label="Completed">{occurrence.completionDate ? format(new Date(occurrence.completionDate), 'd MMM yyyy') : '—'}</Row>
                 </div>
 
                 <div className="space-y-2 text-sm">
@@ -105,7 +112,7 @@ export function OccurrenceDetails({ occurrence, canManage, onClose }: {
                                         {doc.fileName}
                                     </a>
                                     <div className="text-xs text-muted-foreground">
-                                        {doc.uploadedBy.name}, {new Date(doc.uploadedAt).toLocaleDateString()}
+                                        {doc.uploadedBy.name}, {format(new Date(doc.uploadedAt), 'd MMM yyyy')}
                                     </div>
                                 </li>
                             ))}

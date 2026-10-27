@@ -21,6 +21,7 @@ import {
     type FacilityListParams,
     type FacilitySort,
 } from '@/lib/facilities/list'
+import { pageWindow } from '@/lib/format/pages'
 
 const STATUS_BADGE = {
     ACTIVE: 'success',
@@ -226,10 +227,7 @@ function SortHeader({ current, sort, label, align = 'left', className }: {
 
 function Pagination({ current, totalPages }: { current: FacilityListParams; totalPages: number }) {
     const { page } = current
-    // First, last, and a window around the current page, with gaps marked.
-    const pages = [...new Set([1, page - 1, page, page + 1, totalPages])]
-        .filter(p => p >= 1 && p <= totalPages)
-        .sort((a, b) => a - b)
+    const pages = pageWindow(page, totalPages)
 
     const button = 'inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-medium transition-colors'
     return (
