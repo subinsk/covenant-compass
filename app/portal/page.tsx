@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { complianceScore } from '@/lib/portal/compliance'
-import { Card, CardContent, Button } from '@/components/ui/core'
-import { Upload } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/core'
+import { EvidenceUpload } from '@/components/features/EvidenceUpload'
 
 export default async function BorrowerPortal() {
     const session = await getSession()
@@ -15,7 +15,10 @@ export default async function BorrowerPortal() {
         prisma.covenantOccurrence.findMany({
             where: { facility: { borrowerOrgId: session.orgId } },
             orderBy: { dueDate: 'asc' },
-            include: { covenant: true },
+            include: {
+                covenant: true,
+                documents: { orderBy: { uploadedAt: 'asc' }, select: { id: true, fileName: true, uploadedAt: true } },
+            },
         }),
     ])
 
@@ -43,7 +46,7 @@ export default async function BorrowerPortal() {
                 )}
                 {actionItems.map(item => (
                     <Card key={item.id}>
-                        <CardContent className="p-6 flex items-center justify-between">
+                        <CardContent className="p-6 flex items-start justify-between gap-4">
                             <div>
                                 <p className="text-sm text-muted-foreground uppercase tracking-wider">{item.covenant.type}</p>
                                 <h3 className="text-lg font-medium">{item.covenant.title}</h3>
@@ -52,12 +55,10 @@ export default async function BorrowerPortal() {
                                     {item.status === 'OVERDUE' && <span className="ml-2 text-red-600 font-medium">Overdue</span>}
                                 </p>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <Button size="sm">
-                                    <Upload className="w-4 h-4 mr-2" />
-                                    Upload Evidence
-                                </Button>
-                            </div>
+                            <EvidenceUpload
+                                occurrenceId={item.id}
+                                documents={item.documents.map(d => ({ ...d, uploadedAt: d.uploadedAt.toISOString() }))}
+                            />
                         </CardContent>
                     </Card>
                 ))}

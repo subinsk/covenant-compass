@@ -48,3 +48,6 @@ docs/PRODUCT_PLAN.md
 
 # llm response cache
 .cache/
+
+# uploaded evidence files
+/uploads/
