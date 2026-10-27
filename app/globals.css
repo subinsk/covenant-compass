@@ -31,8 +31,12 @@
 
   --radius-radius: var(--radius);
 
-  --animate-fade-up: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-grow-x: grow-x 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* "backwards" so nothing stays applied once an animation ends: a leftover
+     transform would trap fixed-position modals inside the animated element. */
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  --animate-fade-in: fade-in 0.4s ease-out backwards;
+  --animate-pop-in: pop-in 0.15s ease-out backwards;
+  --animate-grow-x: grow-x 1s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 
   @keyframes fade-up {
     from {
@@ -42,6 +46,19 @@
     to {
       opacity: 1;
       transform: none;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
     }
   }
 
@@ -106,4 +123,10 @@ body {
 
 * {
   border-color: var(--border);
+}
+
+/* Tailwind v4 no longer gives buttons a pointer cursor */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
 }

@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Loader2, Plus } from 'lucide-react'
 import { Button, Input } from '@/components/ui/core'
+import { Combobox } from '@/components/ui/Combobox'
 import { saveErrorMessage } from '@/lib/covenants/new-covenant'
 import {
     buildFacilityRequestBody, EMPTY_FACILITY_FORM, facilityFormErrors, type FacilityForm,
@@ -19,7 +21,8 @@ export function NewFacilityButton({ borrowers }: { borrowers: Borrower[] }) {
                 <Plus className="w-4 h-4 mr-2" />
                 New Facility
             </Button>
-            {isOpen && <NewFacilityModal borrowers={borrowers} onClose={() => setIsOpen(false)} />}
+            {/* Portal to body so styles on the page around the button can't clip or cover the modal */}
+            {isOpen && createPortal(<NewFacilityModal borrowers={borrowers} onClose={() => setIsOpen(false)} />, document.body)}
         </>
     )
 }
@@ -48,6 +51,12 @@ export function NewFacilityModal({ borrowers, onClose }: { borrowers: Borrower[]
         (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
             setForm({ ...form, [field]: e.target.value })
 
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [onClose])
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setSubmitted(true)
@@ -74,11 +83,18 @@ export function NewFacilityModal({ borrowers, onClose }: { borrowers: Borrower[]
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <form onSubmit={handleSubmit} noValidate className="bg-background w-full max-w-lg rounded-lg shadow-lg border p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm animate-fade-in sm:items-center">
+            <form
+                onSubmit={handleSubmit}
+                noValidate
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="new-facility-title"
+                className="bg-background w-full max-w-lg rounded-lg shadow-lg border p-6 space-y-4 animate-fade-up"
+            >
                 <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold">New Facility</h2>
-                    <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
+                    <h2 id="new-facility-title" className="text-lg font-semibold">New Facility</h2>
+                    <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">✕</button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -88,14 +104,14 @@ export function NewFacilityModal({ borrowers, onClose }: { borrowers: Borrower[]
                         </Field>
                     </div>
                     <Field label="Borrower" error={shown.borrowerOrgId}>
-                        <select
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        <Combobox
+                            options={borrowers.map(b => ({ value: b.id, label: b.name }))}
                             value={form.borrowerOrgId}
-                            onChange={set('borrowerOrgId')}
-                        >
-                            <option value="">Select a borrower</option>
-                            {borrowers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                        </select>
+                            onChange={borrowerOrgId => setForm({ ...form, borrowerOrgId })}
+                            placeholder="Select a borrower"
+                            searchPlaceholder="Search borrowers…"
+                            invalid={!!shown.borrowerOrgId}
+                        />
                     </Field>
                     <Field label="Facility reference (optional)" error={shown.facilityReference}>
                         <Input value={form.facilityReference} onChange={set('facilityReference')} />
