@@ -4,8 +4,12 @@ import { notFound, redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility } from '@/lib/auth/access'
 
-export default async function FacilityPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function FacilityPage({ params, searchParams }: {
+    params: Promise<{ id: string }>
+    searchParams: Promise<{ tab?: string }>
+}) {
     const { id } = await params
+    const { tab } = await searchParams
     const session = await getSession()
     if (!session) redirect('/login')
 
@@ -26,5 +30,5 @@ export default async function FacilityPage({ params }: { params: Promise<{ id: s
 
     if (!facility || !canAccessFacility(session, facility)) return notFound()
 
-    return <FacilityDetailView facility={{ ...facility, totalCommitment: facility.totalCommitment.toString() }} />
+    return <FacilityDetailView facility={{ ...facility, totalCommitment: facility.totalCommitment.toString() }} initialTab={tab} />
 }

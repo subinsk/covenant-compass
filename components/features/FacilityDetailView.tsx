@@ -15,15 +15,15 @@ type FacilityWithDetails = Prisma.FacilityGetPayload<{
 // page passes totalCommitment as a string.
 export type FacilityView = Omit<FacilityWithDetails, 'totalCommitment'> & { totalCommitment: string }
 
-export default function FacilityDetailView({ facility }: { facility: FacilityView }) {
-    const [activeTab, setActiveTab] = useState('overview')
-    const [isaddModalOpen, setIsAddModalOpen] = useState(false)
+const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'covenants', label: 'Covenants' },
+    { id: 'schedule', label: 'Schedule' },
+]
 
-    const tabs = [
-        { id: 'overview', label: 'Overview' },
-        { id: 'covenants', label: 'Covenants' },
-        { id: 'schedule', label: 'Schedule' },
-    ]
+export default function FacilityDetailView({ facility, initialTab }: { facility: FacilityView; initialTab?: string }) {
+    const [activeTab, setActiveTab] = useState(tabs.some(t => t.id === initialTab) ? initialTab! : 'overview')
+    const [isaddModalOpen, setIsAddModalOpen] = useState(false)
 
     return (
         <div className="space-y-6">

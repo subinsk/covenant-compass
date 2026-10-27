@@ -4,15 +4,21 @@ import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
 import { Card, CardContent, Badge, Button } from '@/components/ui/core'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
+import type { FacilityStatus } from '@prisma/client'
 
-export default async function FacilitiesPage() {
+const STATUSES: FacilityStatus[] = ['ACTIVE', 'MATURED', 'DEFAULTED']
+
+export default async function FacilitiesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
     const session = await getSession()
     if (!session) redirect('/login')
     if (!isLender(session)) redirect('/portal')
 
+    const { status: statusParam } = await searchParams
+    const status = STATUSES.find(s => s === statusParam)
+
     const facilities = await prisma.facility.findMany({
-        where: facilityScope(session),
+        where: { ...facilityScope(session), ...(status && { status }) },
         orderBy: { updatedAt: 'desc' },
         include: {
             lender: true,
@@ -26,7 +32,18 @@ export default async function FacilitiesPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold tracking-tight">Facilities</h1>
+                <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold tracking-tight">Facilities</h1>
+                    {status && (
+                        <Link
+                            href="/facilities"
+                            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                        >
+                            {status}
+                            <X className="w-3 h-3" />
+                        </Link>
+                    )}
+                </div>
                 <Button>
                     <Plus className="w-4 h-4 mr-2" />
                     New Facility
