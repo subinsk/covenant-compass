@@ -107,6 +107,11 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
                             <div className="text-sm">
                                 <p className="font-semibold text-primary">AI Suggestion</p>
                                 <p className="text-muted-foreground">Review the extracted details below before saving.</p>
+                                {formData.source && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {formData.source === 'llm' ? 'Suggested by the language model.' : 'Suggested by keyword rules.'}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
