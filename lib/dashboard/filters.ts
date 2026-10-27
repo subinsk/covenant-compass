@@ -6,7 +6,7 @@ import type { Prisma } from '@prisma/client'
 export const OBLIGATION_FILTERS = {
     upcoming: { label: 'Upcoming (30 days)', description: 'Pending obligations due in the next 30 days.' },
     overdue: { label: 'Overdue Obligations', description: 'Obligations past their due date.' },
-    closed: { label: 'Closed Obligations', description: 'Completed, overdue and waived obligations that make up the on-time rate.' },
+    closed: { label: 'Closed Obligations', description: 'Completed and overdue obligations: the base of the on-time rate. Waived ones are left out.' },
 } as const
 
 export type ObligationFilter = keyof typeof OBLIGATION_FILTERS
@@ -26,6 +26,6 @@ export function obligationWhere(
         case 'overdue':
             return { facility: scope, status: 'OVERDUE' }
         case 'closed':
-            return { facility: scope, status: { in: ['COMPLETED', 'OVERDUE', 'WAIVED'] } }
+            return { facility: scope, status: { in: ['COMPLETED', 'OVERDUE'] } }
     }
 }

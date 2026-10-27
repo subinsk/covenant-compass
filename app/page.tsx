@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, cn } from '@/component
 import { AlertCircle, ArrowRight, CheckCircle, ChevronRight, Clock, FileStack, History, ShieldCheck } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { obligationWhere } from '@/lib/dashboard/filters'
+import { onTimeRate, rankNeedsAttention } from '@/lib/dashboard/metrics'
+import { describeAudit } from '@/lib/dashboard/activity'
 
 // Server Component for Dashboard
 export default async function Dashboard() {
@@ -17,36 +19,55 @@ export default async function Dashboard() {
   const scope = facilityScope(session)
   const now = new Date()
 
-  const totalFacilities = await prisma.facility.count({ where: { ...scope, status: 'ACTIVE' } })
+  const [upcomingOccurrences, overdueOccurrences, facilities, occurrences, documents] = await Promise.all([
+    prisma.covenantOccurrence.count({ where: obligationWhere('upcoming', scope, now) }),
+    prisma.covenantOccurrence.count({ where: obligationWhere('overdue', scope, now) }),
+    prisma.facility.findMany({
+      where: scope,
+      select: { id: true, name: true, facilityReference: true, status: true },
+    }),
+    prisma.covenantOccurrence.findMany({
+      where: { facility: scope },
+      select: {
+        id: true, facilityId: true, status: true, ragStatus: true, dueDate: true, completionDate: true,
+        covenant: { select: { title: true } },
+      },
+    }),
+    prisma.document.findMany({
+      where: { facility: scope },
+      select: { id: true, facilityId: true, fileName: true },
+    }),
+  ])
 
-  const upcomingOccurrences = await prisma.covenantOccurrence.count({ where: obligationWhere('upcoming', scope, now) })
-  const overdueOccurrences = await prisma.covenantOccurrence.count({ where: obligationWhere('overdue', scope, now) })
-
-  // On-time rate: completed share of closed obligations
-  const completed = await prisma.covenantOccurrence.count({ where: { facility: scope, status: 'COMPLETED' } })
-  const totalClosed = await prisma.covenantOccurrence.count({ where: obligationWhere('closed', scope, now) })
-  const onTimeRate = totalClosed > 0 ? Math.round((completed / totalClosed) * 100) : 100
-
-  // High Risk Facilities (Any with RED status occurrences)
-  const highRiskFacilities = await prisma.facility.findMany({
+  // Recent activity comes from the audit log, limited to entities on the lender's facilities.
+  const auditEntries = await prisma.auditLog.findMany({
     where: {
-      ...scope,
-      occurrences: {
-        some: { ragStatus: 'RED' }
-      }
+      OR: [
+        { entityType: 'FACILITY', entityId: { in: facilities.map(f => f.id) } },
+        { entityType: 'OCCURRENCE', entityId: { in: occurrences.map(o => o.id) } },
+        { entityType: 'DOCUMENT', entityId: { in: documents.map(d => d.id) } },
+      ],
     },
-    include: {
-      occurrences: { where: { ragStatus: 'RED' } }
-    },
-    take: 5
+    orderBy: { timestamp: 'desc' },
+    take: 8,
+    include: { performedBy: { select: { name: true } } },
   })
 
-  // Recent Activity
-  const recentActivity = await prisma.covenantOccurrence.findMany({
-    where: { facility: scope },
-    orderBy: { updatedAt: 'desc' },
-    take: 5,
-    include: { facility: true, covenant: true }
+  const totalFacilities = facilities.filter(f => f.status === 'ACTIVE').length
+  const onTime = onTimeRate(occurrences)
+
+  const byFacility = new Map<string, typeof occurrences>()
+  for (const o of occurrences) byFacility.set(o.facilityId, [...(byFacility.get(o.facilityId) ?? []), o])
+  const highRiskFacilities = rankNeedsAttention(facilities.map(f => ({ ...f, occurrences: byFacility.get(f.id) ?? [] })))
+
+  const lookups = {
+    facilities: new Map(facilities.map(f => [f.id, f])),
+    occurrences: new Map(occurrences.map(o => [o.id, { facilityId: o.facilityId, title: o.covenant.title, dueDate: o.dueDate }])),
+    documents: new Map(documents.map(d => [d.id, d])),
+  }
+  const recentActivity = auditEntries.flatMap(entry => {
+    const item = describeAudit(entry, lookups)
+    return item ? [{ ...item, id: entry.id, timestamp: entry.timestamp }] : []
   })
 
   return (
@@ -71,11 +92,14 @@ export default async function Dashboard() {
         <KpiCard index={0} title="Active Facilities" value={totalFacilities} href="/facilities?status=ACTIVE" icon={<FileStack className="w-5 h-5" />} tone="blue" />
         <KpiCard index={1} title="Upcoming (30 days)" value={upcomingOccurrences} href="/obligations?filter=upcoming" icon={<Clock className="w-5 h-5" />} tone="amber" />
         <KpiCard index={2} title="Overdue Obligations" value={overdueOccurrences} href="/obligations?filter=overdue" icon={<AlertCircle className="w-5 h-5" />} tone="red" pulse={overdueOccurrences > 0} />
-        <KpiCard index={3} title="On-Time Completion" value={`${onTimeRate}%`} href="/obligations?filter=closed" icon={<CheckCircle className="w-5 h-5" />} tone="emerald">
-          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <KpiCard index={3} title="On-Time Completion" value={onTime.rate === null ? '—' : `${onTime.rate}%`} href="/obligations?filter=closed" icon={<CheckCircle className="w-5 h-5" />} tone="emerald">
+          <p className="mt-1 text-xs text-muted-foreground">
+            {onTime.rate === null ? 'Nothing closed yet' : `${onTime.onTime} of ${onTime.completed + onTime.overdue} on time`}
+          </p>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full origin-left rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 animate-grow-x"
-              style={{ width: `${onTimeRate}%`, animationDelay: '400ms' }}
+              style={{ width: `${onTime.rate ?? 0}%`, animationDelay: '400ms' }}
             />
           </div>
         </KpiCard>
@@ -94,11 +118,11 @@ export default async function Dashboard() {
               </span>
               Needs Attention
             </CardTitle>
-            <span className="text-xs text-muted-foreground">High risk</span>
+            <span className="text-xs text-muted-foreground">Open red or overdue</span>
           </CardHeader>
           <CardContent>
             {highRiskFacilities.length === 0 ? (
-              <EmptyState icon={<ShieldCheck className="w-6 h-6" />} text="No facilities currently at high risk." />
+              <EmptyState icon={<ShieldCheck className="w-6 h-6" />} text="No open red or overdue obligations on active facilities." />
             ) : (
               <ul className="-mx-2 space-y-1">
                 {highRiskFacilities.map((f, i) => (
@@ -112,9 +136,12 @@ export default async function Dashboard() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">{f.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{f.facilityReference}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {f.facilityReference}
+                          {f.oldestOverdue && ` · overdue since ${format(f.oldestOverdue, 'd MMM yyyy')}`}
+                        </p>
                       </div>
-                      <Badge variant="destructive">{f.occurrences.length} Red Flags</Badge>
+                      <Badge variant="destructive">{f.openRed} open</Badge>
                       <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                     </Link>
                   </li>
@@ -134,26 +161,23 @@ export default async function Dashboard() {
           </CardHeader>
           <CardContent>
             {recentActivity.length === 0 ? (
-              <EmptyState icon={<History className="w-6 h-6" />} text="No activity yet." />
+              <EmptyState icon={<History className="w-6 h-6" />} text="No activity yet. Completions, waivers, uploads and imports will show here." />
             ) : (
               <ol className="relative space-y-5 border-l border-border pl-5 ml-1.5">
                 {recentActivity.map((act, i) => (
                   <li key={act.id} className="relative animate-fade-up" style={{ animationDelay: `${460 + i * 60}ms` }}>
-                    <span className={cn('absolute -left-[26px] top-3 h-2.5 w-2.5 rounded-full ring-4 ring-card', STATUS_DOT[act.status])} />
+                    <span className="absolute -left-[26px] top-3 h-2.5 w-2.5 rounded-full bg-slate-400 ring-4 ring-card" />
                     <Link
                       href={`/facilities/${act.facilityId}?tab=schedule`}
                       className="group -mx-2 flex items-start justify-between gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-accent"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">{act.covenant.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">{act.facility.name}</p>
+                        <p className="text-sm font-medium transition-colors group-hover:text-primary">{act.text}</p>
+                        <p className="truncate text-xs text-muted-foreground">{act.facilityName}</p>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <Badge variant={STATUS_BADGE[act.status]}>{act.status}</Badge>
-                        <p className="mt-1 text-[11px] text-muted-foreground" title={act.updatedAt.toLocaleString()}>
-                          {formatDistanceToNow(act.updatedAt, { addSuffix: true })}
-                        </p>
-                      </div>
+                      <p className="shrink-0 text-[11px] text-muted-foreground" title={act.timestamp.toLocaleString()}>
+                        {formatDistanceToNow(act.timestamp, { addSuffix: true })}
+                      </p>
                     </Link>
                   </li>
                 ))}
@@ -164,20 +188,6 @@ export default async function Dashboard() {
       </div>
     </div>
   )
-}
-
-const STATUS_BADGE = {
-  PENDING: 'secondary',
-  COMPLETED: 'success',
-  OVERDUE: 'destructive',
-  WAIVED: 'warning',
-} as const
-
-const STATUS_DOT = {
-  PENDING: 'bg-slate-400',
-  COMPLETED: 'bg-emerald-500',
-  OVERDUE: 'bg-red-500',
-  WAIVED: 'bg-amber-500',
 }
 
 const TONES = {

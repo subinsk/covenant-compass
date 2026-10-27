@@ -26,6 +26,10 @@ describe('obligationWhere', () => {
         })
     })
 
+    it('lists closed as the on-time denominator: completed and overdue, not waived', () => {
+        expect(obligationWhere('closed', scope, now)).toEqual({ facility: scope, status: { in: ['COMPLETED', 'OVERDUE'] } })
+    })
+
     it('keeps the facility scope on every filter', () => {
         expect(obligationWhere('overdue', scope, now).facility).toBe(scope)
         expect(obligationWhere('closed', scope, now).facility).toBe(scope)
