@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
 import { obligationWhere } from '@/lib/dashboard/filters'
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui/core'
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui/core'
 import { Download } from 'lucide-react'
 
 export default async function ReportsPage() {
@@ -30,11 +30,14 @@ export default async function ReportsPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold tracking-tight">Compliance Reports</h1>
-                {/* In a real app, this button would trigger a client-side CSV generation function */}
-                <Button variant="outline">
+                <a
+                    href="/api/reports/export"
+                    download
+                    className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
                     <Download className="w-4 h-4 mr-2" />
                     Export CSV
-                </Button>
+                </a>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">

@@ -9,6 +9,14 @@ export type OnTimeRate = {
     overdue: number
 }
 
+// Whether one obligation counts as on time: COMPLETED with completionDate <= dueDate is
+// on time, any other COMPLETED or OVERDUE is not, and WAIVED or PENDING is undecided (null).
+export function isOnTime(o: OnTimeInput): boolean | null {
+    if (o.status === 'OVERDUE') return false
+    if (o.status !== 'COMPLETED') return null
+    return !!o.completionDate && new Date(o.completionDate) <= new Date(o.dueDate)
+}
+
 // On-time = COMPLETED with completionDate <= dueDate, out of COMPLETED + OVERDUE.
 // WAIVED is left out (the lender approved it) and PENDING isn't decided yet.
 export function onTimeRate(occurrences: OnTimeInput[]): OnTimeRate {
@@ -17,9 +25,8 @@ export function onTimeRate(occurrences: OnTimeInput[]): OnTimeRate {
     let overdue = 0
     for (const o of occurrences) {
         if (o.status === 'OVERDUE') overdue++
-        if (o.status !== 'COMPLETED') continue
-        completed++
-        if (o.completionDate && new Date(o.completionDate) <= new Date(o.dueDate)) onTime++
+        if (o.status === 'COMPLETED') completed++
+        if (isOnTime(o)) onTime++
     }
     const total = completed + overdue
     return { rate: total === 0 ? null : Math.round((onTime / total) * 100), onTime, completed, overdue }

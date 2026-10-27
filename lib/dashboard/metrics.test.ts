@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { needsAttention, onTimeRate, rankNeedsAttention } from './metrics'
+import { isOnTime, needsAttention, onTimeRate, rankNeedsAttention } from './metrics'
 
 const due = new Date('2026-03-31T00:00:00Z')
 const occ = (status: string, completionDate: Date | string | null = null) => ({ status, dueDate: due, completionDate })
@@ -31,6 +31,17 @@ describe('onTimeRate', () => {
 
     it('does not count a completion without a date as on time', () => {
         expect(onTimeRate([occ('COMPLETED', null)])).toEqual({ rate: 0, onTime: 0, completed: 1, overdue: 0 })
+    })
+})
+
+describe('isOnTime', () => {
+    it('judges completed and overdue obligations and leaves the rest undecided', () => {
+        expect(isOnTime(occ('COMPLETED', '2026-03-31T00:00:00Z'))).toBe(true)
+        expect(isOnTime(occ('COMPLETED', '2026-04-01T00:00:00Z'))).toBe(false)
+        expect(isOnTime(occ('COMPLETED', null))).toBe(false)
+        expect(isOnTime(occ('OVERDUE'))).toBe(false)
+        expect(isOnTime(occ('WAIVED'))).toBeNull()
+        expect(isOnTime(occ('PENDING'))).toBeNull()
     })
 })
 
