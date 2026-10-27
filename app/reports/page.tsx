@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
+import { obligationWhere } from '@/lib/dashboard/filters'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui/core'
 import { Download } from 'lucide-react'
 
@@ -10,21 +11,20 @@ export default async function ReportsPage() {
     if (!session) redirect('/login')
     if (!isLender(session)) redirect('/portal')
 
-    const occurrences = await prisma.covenantOccurrence.findMany({
-        where: { facility: facilityScope(session) },
-        orderBy: { dueDate: 'asc' },
-        include: {
-            facility: {
-                include: { borrower: true }
-            },
-            covenant: true
-        }
-    })
-
-    const now = new Date()
-
-    // We will serialize data for the client-side CSV export
-    // But for now, we render the table server-side.
+    const scope = facilityScope(session)
+    const [occurrences, comingDue] = await Promise.all([
+        prisma.covenantOccurrence.findMany({
+            where: { facility: scope },
+            orderBy: { dueDate: 'asc' },
+            include: {
+                facility: {
+                    include: { borrower: true }
+                },
+                covenant: true
+            }
+        }),
+        prisma.covenantOccurrence.count({ where: obligationWhere('upcoming', scope, new Date()) }),
+    ])
 
     return (
         <div className="space-y-6">
@@ -49,12 +49,7 @@ export default async function ReportsPage() {
                 <Card>
                     <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Coming Due (30d)</CardTitle></CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-amber-500">
-                            {occurrences.filter(o => {
-                                const diff = new Date(o.dueDate).getTime() - now.getTime()
-                                return diff > 0 && diff < 30 * 24 * 60 * 60 * 1000
-                            }).length}
-                        </div>
+                        <div className="text-2xl font-bold text-amber-500">{comingDue}</div>
                     </CardContent>
                 </Card>
             </div>

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
-import { complianceScore } from '@/lib/portal/compliance'
+import { onTimeRate } from '@/lib/dashboard/metrics'
 import { Card, CardContent } from '@/components/ui/core'
 import { EvidenceUpload } from '@/components/features/EvidenceUpload'
 
@@ -22,7 +22,7 @@ export default async function BorrowerPortal() {
         }),
     ])
 
-    const score = complianceScore(occurrences.map(o => o.status))
+    const score = onTimeRate(occurrences)
     const actionItems = occurrences.filter(o => o.status === 'PENDING' || o.status === 'OVERDUE')
 
     return (
@@ -34,7 +34,10 @@ export default async function BorrowerPortal() {
                 </div>
                 <div className="text-right">
                     <p className="text-sm opacity-80">Compliance Score</p>
-                    <p className="text-3xl font-bold">{score === null ? '—' : `${score}%`}</p>
+                    <p className="text-3xl font-bold">{score.rate === null ? '—' : `${score.rate}%`}</p>
+                    {score.rate !== null && (
+                        <p className="text-xs opacity-80">{score.onTime} of {score.completed + score.overdue} on time</p>
+                    )}
                 </div>
             </div>
 
