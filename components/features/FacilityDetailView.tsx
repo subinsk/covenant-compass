@@ -8,6 +8,8 @@ import { OccurrenceDetails } from './OccurrenceDetails'
 import type { Prisma } from '@prisma/client'
 import { formatPeriod } from '@/lib/format/period'
 import type { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
+import { nextDueByCovenant, type NextDue } from '@/lib/occurrences/next-due'
+import { onTimeRate } from '@/lib/dashboard/metrics'
 
 type FacilityWithDetails = Prisma.FacilityGetPayload<{
     include: {
@@ -26,6 +28,16 @@ const tabs = [
     { id: 'schedule', label: 'Schedule' },
 ]
 
+function NextDueCell({ next }: { next?: NextDue }) {
+    if (!next) return <span className="text-muted-foreground">—</span>
+    return (
+        <span className={next.overdue ? 'text-red-600 font-medium' : ''}>
+            {next.dueDate.toLocaleDateString()}
+            {next.overdue && ' (overdue)'}
+        </span>
+    )
+}
+
 export default function FacilityDetailView({ facility, initialTab, canManage }: {
     facility: FacilityView
     initialTab?: string
@@ -36,6 +48,8 @@ export default function FacilityDetailView({ facility, initialTab, canManage }: 
     // Look the occurrence up by id so the panel shows fresh data after router.refresh().
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const selected = facility.occurrences.find(o => o.id === selectedId)
+    const health = onTimeRate(facility.occurrences)
+    const nextDue = nextDueByCovenant(facility.occurrences)
 
     return (
         <div className="space-y-6">
@@ -102,12 +116,19 @@ export default function FacilityDetailView({ facility, initialTab, canManage }: 
                             <CardHeader><CardTitle>Compliance Health</CardTitle></CardHeader>
                             <CardContent>
                                 <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xl">
-                                        98%
+                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl ${health.rate === null
+                                            ? 'bg-muted text-muted-foreground'
+                                            : health.rate >= 90 ? 'bg-emerald-100 text-emerald-600'
+                                                : health.rate >= 70 ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
+                                        }`}>
+                                        {health.rate === null ? '—' : `${health.rate}%`}
                                     </div>
                                     <div>
-                                        <p className="font-medium">On Track</p>
-                                        <p className="text-sm text-muted-foreground">No major breaches detected.</p>
+                                        <p className="font-medium">On-time rate</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {health.onTime} of {health.completed + health.overdue} on time
+                                            ({health.completed} completed, {health.overdue} overdue; waivers excluded)
+                                        </p>
                                     </div>
                                 </div>
                             </CardContent>
@@ -140,7 +161,7 @@ export default function FacilityDetailView({ facility, initialTab, canManage }: 
                                                 <td className="p-4 font-medium">{cov.title}</td>
                                                 <td className="p-4"><Badge variant="outline">{cov.type}</Badge></td>
                                                 <td className="p-4 capitalize">{cov.frequency.toLowerCase()}</td>
-                                                <td className="p-4 text-muted-foreground">--</td>
+                                                <td className="p-4"><NextDueCell next={nextDue.get(cov.id)} /></td>
                                             </tr>
                                         ))
                                     )}
