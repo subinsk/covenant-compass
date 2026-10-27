@@ -1,8 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import FacilityDetailView from '@/components/features/FacilityDetailView'
+import { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
 import { notFound, redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
-import { canAccessFacility } from '@/lib/auth/access'
+import { canAccessFacility, isLender } from '@/lib/auth/access'
 
 export default async function FacilityPage({ params, searchParams }: {
     params: Promise<{ id: string }>
@@ -22,7 +23,7 @@ export default async function FacilityPage({ params, searchParams }: {
                 orderBy: { createdAt: 'desc' }
             },
             occurrences: {
-                include: { covenant: true },
+                include: { covenant: true, documents: occurrenceDocumentsSelect },
                 orderBy: { dueDate: 'asc' }
             }
         }
@@ -30,5 +31,9 @@ export default async function FacilityPage({ params, searchParams }: {
 
     if (!facility || !canAccessFacility(session, facility)) return notFound()
 
-    return <FacilityDetailView facility={{ ...facility, totalCommitment: facility.totalCommitment.toString() }} initialTab={tab} />
+    return <FacilityDetailView
+        facility={{ ...facility, totalCommitment: facility.totalCommitment.toString() }}
+        initialTab={tab}
+        canManage={isLender(session)}
+    />
 }
