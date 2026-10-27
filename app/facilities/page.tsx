@@ -2,9 +2,10 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
-import { Card, CardContent, Badge, Button } from '@/components/ui/core'
+import { Card, CardContent, Badge } from '@/components/ui/core'
+import { NewFacilityButton } from '@/components/features/NewFacilityModal'
 import Link from 'next/link'
-import { Plus, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { FacilityStatus } from '@prisma/client'
 
 const STATUSES: FacilityStatus[] = ['ACTIVE', 'MATURED', 'DEFAULTED']
@@ -29,6 +30,12 @@ export default async function FacilitiesPage({ searchParams }: { searchParams: P
         }
     })
 
+    const borrowers = await prisma.organization.findMany({
+        where: { type: 'BORROWER' },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' }
+    })
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -44,10 +51,7 @@ export default async function FacilitiesPage({ searchParams }: { searchParams: P
                         </Link>
                     )}
                 </div>
-                <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Facility
-                </Button>
+                <NewFacilityButton borrowers={borrowers} />
             </div>
 
             <Card>
