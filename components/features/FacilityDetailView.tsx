@@ -4,11 +4,16 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@/components/ui/core'
 import { Plus } from 'lucide-react'
 import { AddCovenantModal } from './AddCovenantModal'
+import { OccurrenceDetails } from './OccurrenceDetails'
 import type { Prisma } from '@prisma/client'
 import { formatPeriod } from '@/lib/format/period'
+import type { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
 
 type FacilityWithDetails = Prisma.FacilityGetPayload<{
-    include: { lender: true; borrower: true; covenants: true; occurrences: { include: { covenant: true } } }
+    include: {
+        lender: true; borrower: true; covenants: true
+        occurrences: { include: { covenant: true; documents: typeof occurrenceDocumentsSelect } }
+    }
 }>
 
 // Prisma's Decimal can't cross from a server component to a client one, so the
@@ -21,9 +26,16 @@ const tabs = [
     { id: 'schedule', label: 'Schedule' },
 ]
 
-export default function FacilityDetailView({ facility, initialTab }: { facility: FacilityView; initialTab?: string }) {
+export default function FacilityDetailView({ facility, initialTab, canManage }: {
+    facility: FacilityView
+    initialTab?: string
+    canManage: boolean
+}) {
     const [activeTab, setActiveTab] = useState(tabs.some(t => t.id === initialTab) ? initialTab! : 'overview')
     const [isaddModalOpen, setIsAddModalOpen] = useState(false)
+    // Look the occurrence up by id so the panel shows fresh data after router.refresh().
+    const [selectedId, setSelectedId] = useState<string | null>(null)
+    const selected = facility.occurrences.find(o => o.id === selectedId)
 
     return (
         <div className="space-y-6">
@@ -168,7 +180,7 @@ export default function FacilityDetailView({ facility, initialTab }: { facility:
                                                     </Badge>
                                                 </td>
                                                 <td className="p-4">
-                                                    <Button size="sm" variant="ghost">Details</Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => setSelectedId(occ.id)}>Details</Button>
                                                 </td>
                                             </tr>
                                         ))
@@ -179,6 +191,10 @@ export default function FacilityDetailView({ facility, initialTab }: { facility:
                     </Card>
                 )}
             </div>
+
+            {selected && (
+                <OccurrenceDetails occurrence={selected} canManage={canManage} onClose={() => setSelectedId(null)} />
+            )}
 
             <AddCovenantModal
                 isOpen={isaddModalOpen}
