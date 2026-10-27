@@ -60,10 +60,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
+// The Add Covenant form waits this long for the model before using keyword rules.
+// A CPU-only local model can need more than the 60 s default; set LLM_SUGGEST_TIMEOUT_MS.
+export function suggestTimeoutMs(value = process.env.LLM_SUGGEST_TIMEOUT_MS) {
+    const ms = Number(value)
+    return value && Number.isFinite(ms) && ms > 0 ? ms : 60_000
+}
+
 // Uses the LLM when one is configured and falls back to keyword rules on any error or timeout.
 export async function suggestWithFallback(
     clauseText: string,
-    { timeoutMs = 60_000 }: { timeoutMs?: number } = {},
+    { timeoutMs = suggestTimeoutMs() }: { timeoutMs?: number } = {},
 ): Promise<CovenantSuggestion & { source: 'llm' | 'rules' }> {
     if (clauseText.trim() && process.env.LLM_BASE_URL && process.env.LLM_MODEL) {
         try {

@@ -69,6 +69,7 @@ The repo has no migration history yet, so `prisma db push` creates the schema. T
 | `LLM_API_KEY` | API key for that endpoint. Ollama ignores it, but it must be non-empty. |
 | `LLM_MODEL` | Model name, e.g. `qwen3:4b` on Ollama or `openai/gpt-oss-20b` on Groq. |
 | `LLM_TIMEOUT_MS` | Optional request timeout. Raise it for slow local models; Node's fetch otherwise gives up after 5 minutes. |
+| `LLM_SUGGEST_TIMEOUT_MS` | Optional. How long the Add Covenant form waits for a model suggestion before falling back to keyword rules (default 60000). |
 | `LLM_REASONING_EFFORT` | Optional `low`, `medium` or `high`; sent only when set. |
 | `LLM_CACHE` | Optional; `1` caches LLM responses on disk in `.cache/llm` (or `LLM_CACHE_DIR`). For development. |
 | `SEC_USER_AGENT` | Required by SEC for EDGAR requests: a name and contact email, e.g. `Covenant Compass you@example.com`. |

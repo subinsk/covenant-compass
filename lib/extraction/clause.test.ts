@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { chat } from '@/lib/llm/client'
-import { correctThreshold, suggestCovenant, suggestWithFallback } from './clause'
+import { correctThreshold, suggestCovenant, suggestTimeoutMs, suggestWithFallback } from './clause'
 import { heuristicParse } from './clause-rules'
 
 vi.mock('@/lib/llm/client', () => ({ chat: vi.fn() }))
@@ -90,5 +90,15 @@ describe('correctThreshold', () => {
     it('leaves the threshold alone when the wording is unclear', () => {
         expect(correctThreshold('>= 1.25', 'Fixed Charge Coverage Ratio of 1.25 to 1.00')).toBe('>= 1.25')
         expect(correctThreshold('4.5x', leverageClause)).toBe('4.5x')
+    })
+})
+
+describe('suggestTimeoutMs', () => {
+    it('reads a positive value and falls back to 60 seconds', () => {
+        expect(suggestTimeoutMs('180000')).toBe(180_000)
+        expect(suggestTimeoutMs(undefined)).toBe(60_000)
+        expect(suggestTimeoutMs('')).toBe(60_000)
+        expect(suggestTimeoutMs('-1')).toBe(60_000)
+        expect(suggestTimeoutMs('abc')).toBe(60_000)
     })
 })
