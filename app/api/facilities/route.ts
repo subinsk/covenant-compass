@@ -5,6 +5,7 @@ import { facilityScope, isLender } from '@/lib/auth/access'
 import { FacilityStatus, OrgType, Prisma } from '@prisma/client'
 import { createFacilitySchema, facilityQuerySchema } from '@/lib/validation/facility'
 import { invalidInput, queryParams } from '@/lib/validation/http'
+import { recordAudit } from '@/lib/audit/record'
 
 export async function GET(request: Request) {
     const session = await getSession()
@@ -69,25 +70,34 @@ export async function POST(request: Request) {
     }
 
     try {
-
-        const facility = await prisma.facility.create({
-            data: {
-                name: body.name,
-                facilityReference: body.facilityReference || `REF-${Date.now()}`,
-                lenderOrgId: session.orgId,
-                borrowerOrgId: body.borrowerOrgId,
-                currency: body.currency,
-                totalCommitment: body.totalCommitment,
-                startDate: body.startDate,
-                endDate: body.endDate,
-                status: FacilityStatus.ACTIVE,
-                description: body.description,
-                createdByUserId: session.userId,
-                updatedByUserId: session.userId
-            }
+        const facility = await prisma.$transaction(async (tx) => {
+            const created = await tx.facility.create({
+                data: {
+                    name: body.name,
+                    facilityReference: body.facilityReference || `REF-${Date.now()}`,
+                    lenderOrgId: session.orgId,
+                    borrowerOrgId: body.borrowerOrgId,
+                    currency: body.currency,
+                    totalCommitment: body.totalCommitment,
+                    startDate: body.startDate,
+                    endDate: body.endDate,
+                    status: FacilityStatus.ACTIVE,
+                    description: body.description,
+                    createdByUserId: session.userId,
+                    updatedByUserId: session.userId
+                }
+            })
+            await recordAudit(tx, {
+                entityType: 'FACILITY',
+                entityId: created.id,
+                action: 'CREATE',
+                userId: session.userId,
+                details: { name: created.name, borrowerOrgId: created.borrowerOrgId },
+            })
+            return created
         })
 
-        return NextResponse.json(facility)
+        return NextResponse.json(facility, { status: 201 })
     } catch (e) {
         console.error("Create facility error", e)
         return NextResponse.json({ error: 'Failed to create facility' }, { status: 500 })
