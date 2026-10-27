@@ -101,6 +101,12 @@ enum ReviewStatus {
   REJECTED
 }
 
+enum ExtractionStatus {
+  RUNNING
+  DONE
+  FAILED
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -269,13 +275,15 @@ model AuditLog {
 
 // One run of covenant extraction over a credit agreement for a facility.
 model ExtractionRun {
-  id              String   @id @default(uuid())
+  id              String           @id @default(uuid())
   facilityId      String
   sourceUrl       String
   model           String
   promptChars     Int
+  status          ExtractionStatus @default(DONE)
+  error           String?
   createdByUserId String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime         @default(now())
 
   facility  Facility            @relation(fields: [facilityId], references: [id])
   createdBy User?               @relation(fields: [createdByUserId], references: [id])

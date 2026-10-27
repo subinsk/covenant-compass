@@ -52,3 +52,27 @@ export function saveExtraction(prisma: ExtractionStore, input: SaveExtractionInp
         include: { items: true },
     })
 }
+
+export type RunUpdateStore = {
+    extractionRun: Pick<PrismaClient['extractionRun'], 'update'>
+}
+
+// Saves the covenants onto a run that was started earlier and marks it done.
+export function completeRun(
+    prisma: RunUpdateStore,
+    runId: string,
+    input: Pick<SaveExtractionInput, 'promptChars' | 'covenants' | 'pageStarts'>,
+) {
+    return prisma.extractionRun.update({
+        where: { id: runId },
+        data: {
+            status: 'DONE',
+            promptChars: input.promptChars,
+            items: { create: input.covenants.map((c) => extractedCovenantRow(c, input.pageStarts)) },
+        },
+    })
+}
+
+export function failRun(prisma: RunUpdateStore, runId: string, error: string) {
+    return prisma.extractionRun.update({ where: { id: runId }, data: { status: 'FAILED', error } })
+}
