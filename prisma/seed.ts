@@ -28,6 +28,7 @@ async function main() {
     console.log('Start large scale seeding...')
 
     // Cleanup
+    await prisma.auditLog.deleteMany()
     await prisma.notification.deleteMany()
     await prisma.document.deleteMany()
     await prisma.extractedCovenant.deleteMany()
