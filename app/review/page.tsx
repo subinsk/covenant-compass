@@ -6,11 +6,33 @@ import { facilityScope, isLender } from '@/lib/auth/access'
 import { formatThreshold } from '@/lib/extraction/review'
 import { Badge, Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
 import ReviewActions from './ReviewActions'
+import ImportAgreement, { type RunSummary } from './ImportAgreement'
 
 export default async function ReviewPage() {
     const session = await getSession()
     if (!session) redirect('/login')
     if (!isLender(session)) redirect('/portal')
+
+    const facilities = await prisma.facility.findMany({
+        where: facilityScope(session),
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+    })
+    const recentRuns = await prisma.extractionRun.findMany({
+        where: { facility: facilityScope(session) },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: { facility: { select: { name: true } }, _count: { select: { items: true } } },
+    })
+    const runs: RunSummary[] = recentRuns.map((run) => ({
+        id: run.id,
+        facilityName: run.facility.name,
+        sourceUrl: run.sourceUrl,
+        status: run.status,
+        error: run.error,
+        itemCount: run._count.items,
+        createdAt: run.createdAt.toISOString(),
+    }))
 
     const items = await prisma.extractedCovenant.findMany({
         where: { status: 'PENDING', run: { facility: facilityScope(session) } },
@@ -35,6 +57,8 @@ export default async function ReviewPage() {
                     Covenants read from credit agreements. Approve to add them to the facility, or reject.
                 </p>
             </div>
+
+            <ImportAgreement facilities={facilities} runs={runs} />
 
             {groups.size === 0 && (
                 <Card>

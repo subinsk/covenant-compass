@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CitedCovenant } from './extract'
-import { saveExtraction, type ExtractionStore } from './store'
+import { completeRun, failRun, saveExtraction, type ExtractionStore, type RunUpdateStore } from './store'
 
 const leverage: CitedCovenant = {
     name: 'Maximum Leverage Ratio',
@@ -104,5 +104,31 @@ describe('saveExtraction', () => {
         const { data } = create.mock.calls[0][0]
         expect(data.createdByUserId).toBeUndefined()
         expect(data.items.create[0].page).toBeUndefined()
+    })
+})
+
+function fakeUpdateStore() {
+    const update = vi.fn(async (args: { where: Row, data: Row }) => ({ id: args.where.id, ...args.data }))
+    const store = { extractionRun: { update } } as unknown as RunUpdateStore
+    return { store, update }
+}
+
+describe('completeRun', () => {
+    it('adds the covenants to the run and marks it done', async () => {
+        const { store, update } = fakeUpdateStore()
+        await completeRun(store, 'run-1', { promptChars: 99, covenants: [leverage], pageStarts: [0, 100, 200, 300] })
+        const { where, data } = update.mock.calls[0][0] as { where: Row, data: Row & { items: { create: Row[] } } }
+        expect(where).toEqual({ id: 'run-1' })
+        expect(data).toMatchObject({ status: 'DONE', promptChars: 99 })
+        expect(data.items.create).toHaveLength(1)
+        expect(data.items.create[0]).toMatchObject({ name: 'Maximum Leverage Ratio', page: 3 })
+    })
+})
+
+describe('failRun', () => {
+    it('marks the run failed with the error', async () => {
+        const { store, update } = fakeUpdateStore()
+        await failRun(store, 'run-1', 'boom')
+        expect(update).toHaveBeenCalledWith({ where: { id: 'run-1' }, data: { status: 'FAILED', error: 'boom' } })
     })
 })
