@@ -75,10 +75,8 @@ export default function AppLayout({ children, isBorrower }: { children: React.Re
             {/* Main Content */}
             <div className="flex-1 flex flex-col">
                 {/* Header */}
-                <header className="h-16 border-b bg-card flex items-center justify-between px-6 sticky top-0 z-10 w-full">
-                    <h2 className="text-lg font-semibold text-foreground">
-                        {navItems.find(i => i.href === pathname)?.label || 'Overview'}
-                    </h2>
+                {/* Pages show their own title, so the header only holds actions */}
+                <header className="h-16 border-b bg-card flex items-center justify-end px-6 sticky top-0 z-10 w-full">
                     <div className="flex items-center gap-4">
                         <button className="relative p-2 rounded-full hover:bg-accent text-muted-foreground">
                             <Bell className="w-5 h-5" />
