@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canAccessFacility, facilityScope, isLender, organizationScope } from './access'
+import { borrowerScope, canAccessFacility, facilityScope, isLender, organizationScope } from './access'
 
 const facility = { lenderOrgId: 'bank', borrowerOrgId: 'acme' }
 
@@ -45,11 +45,22 @@ describe('facilityScope', () => {
     })
 })
 
-describe('organizationScope', () => {
-    it('gives lenders their own org plus borrower orgs', () => {
-        expect(organizationScope({ role: 'LENDER_USER', orgId: 'bank' })).toEqual({
-            OR: [{ id: 'bank' }, { type: 'BORROWER' }],
+describe('borrowerScope', () => {
+    it('limits borrowers to ones the lender added or lends to', () => {
+        expect(borrowerScope({ role: 'LENDER_USER', orgId: 'bank' })).toEqual({
+            type: 'BORROWER',
+            OR: [
+                { createdByOrgId: 'bank' },
+                { borrowerFacilities: { some: { lenderOrgId: 'bank' } } },
+            ],
         })
+    })
+})
+
+describe('organizationScope', () => {
+    it('gives lenders their own org plus their borrowers', () => {
+        const session = { role: 'LENDER_USER', orgId: 'bank' }
+        expect(organizationScope(session)).toEqual({ OR: [{ id: 'bank' }, borrowerScope(session)] })
     })
 
     it('gives borrowers only their own org', () => {

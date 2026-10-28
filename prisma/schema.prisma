@@ -88,6 +88,7 @@ enum NotificationChannel {
 }
 
 enum EntityType {
+  ORGANIZATION
   FACILITY
   COVENANT
   OCCURRENCE
@@ -142,9 +143,26 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Borrower details, filled in when a lender adds the borrower
+  legalName          String?
+  registrationNumber String?
+  country            String?
+  industry           String?
+  website            String?
+  contactName        String?
+  contactEmail       String?
+  contactPhone       String?
+  address            String?
+  notes              String?
+  // The lender org that added this borrower; only it (and lenders with a
+  // facility to the borrower) can see it. Null for seeded orgs.
+  createdByOrgId     String?
+
   users           User[]
   lenderFacilities Facility[] @relation("LenderFacilities")
   borrowerFacilities Facility[] @relation("BorrowerFacilities")
+
+  @@index([createdByOrgId])
 }
 
 model Facility {

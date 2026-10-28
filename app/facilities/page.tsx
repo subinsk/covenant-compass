@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
-import { facilityScope, isLender } from '@/lib/auth/access'
+import { borrowerScope, facilityScope, isLender } from '@/lib/auth/access'
 import { Card, CardContent, Badge, cn } from '@/components/ui/core'
 import { NewFacilityButton } from '@/components/features/NewFacilityModal'
 import { FacilitySearch } from '@/components/features/FacilitySearch'
@@ -65,7 +65,7 @@ export default async function FacilitiesPage({ searchParams }: { searchParams: P
     })
 
     const borrowers = await prisma.organization.findMany({
-        where: { type: 'BORROWER' },
+        where: borrowerScope(session),
         select: { id: true, name: true },
         orderBy: { name: 'asc' }
     })
