@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Loader2, X } from 'lucide-react'
 import { Badge, Button } from '@/components/ui/core'
+import { useOverlay } from '@/components/ui/useOverlay'
 import { format } from 'date-fns'
 import { formatPeriod } from '@/lib/format/period'
 import type { OccurrenceAction } from '@/lib/occurrences/transitions'
@@ -36,11 +37,7 @@ export function OccurrenceDetails({ occurrence, canManage, onClose }: {
 
     const isOpen = occurrence.status === 'PENDING' || occurrence.status === 'OVERDUE'
 
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-        window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
-    }, [onClose])
+    const backdrop = useOverlay(onClose)
 
     async function act(action: OccurrenceAction) {
         setBusy(true)
@@ -67,10 +64,9 @@ export function OccurrenceDetails({ occurrence, canManage, onClose }: {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-[2px] animate-fade-in" onClick={onClose}>
+        <div {...backdrop} className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-[2px] animate-fade-in">
             <aside
-                className="bg-background w-full max-w-md h-full overflow-y-auto border-l shadow-2xl p-6 space-y-6 animate-slide-in-right"
-                onClick={e => e.stopPropagation()}
+                className="bg-background w-full max-w-md h-full overflow-y-auto overscroll-contain border-l shadow-2xl p-6 space-y-6 animate-slide-in-right"
                 aria-label="Obligation details"
             >
                 <div className="flex justify-between items-start gap-4">

@@ -496,7 +496,7 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                 document.body
             )}
             {isAddModalOpen && createPortal(
-                <AddCovenantModal isOpen onClose={() => setIsAddModalOpen(false)} facilityId={facility.id} />,
+                <AddCovenantModal onClose={() => setIsAddModalOpen(false)} facilityId={facility.id} />,
                 document.body
             )}
         </div>

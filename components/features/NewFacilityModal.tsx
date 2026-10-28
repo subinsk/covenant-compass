@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Loader2, Plus } from 'lucide-react'
 import { Button, Input } from '@/components/ui/core'
 import { Combobox } from '@/components/ui/Combobox'
+import { useOverlay } from '@/components/ui/useOverlay'
 import { saveErrorMessage } from '@/lib/covenants/new-covenant'
 import {
     buildFacilityRequestBody, EMPTY_FACILITY_FORM, facilityFormErrors, type FacilityForm,
@@ -51,11 +52,7 @@ export function NewFacilityModal({ borrowers, onClose }: { borrowers: Borrower[]
         (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
             setForm({ ...form, [field]: e.target.value })
 
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-        window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
-    }, [onClose])
+    const backdrop = useOverlay(onClose)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -83,7 +80,7 @@ export function NewFacilityModal({ borrowers, onClose }: { borrowers: Borrower[]
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm animate-fade-in sm:items-center">
+        <div {...backdrop} className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 p-4 backdrop-blur-sm animate-fade-in sm:items-center">
             <form
                 onSubmit={handleSubmit}
                 noValidate
