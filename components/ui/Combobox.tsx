@@ -1,20 +1,23 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { Check, ChevronDown, Search } from 'lucide-react'
+import { Check, ChevronDown, Plus, Search } from 'lucide-react'
 import { cn } from '@/components/ui/core'
 
 export type ComboboxOption = { value: string; label: string }
 
 // A searchable select: a button that opens a filterable list. Arrow keys move,
-// Enter picks, Escape closes (without closing a surrounding modal).
-export function Combobox({ options, value, onChange, placeholder = 'Select…', searchPlaceholder = 'Search…', invalid }: {
+// Enter picks, Escape closes (without closing a surrounding modal). With
+// onCreate, the list ends with an "add new" action that gets the search text.
+export function Combobox({ options, value, onChange, placeholder = 'Select…', searchPlaceholder = 'Search…', invalid, onCreate, createLabel = 'Add new' }: {
     options: ComboboxOption[]
     value: string
     onChange: (value: string) => void
     placeholder?: string
     searchPlaceholder?: string
     invalid?: boolean
+    onCreate?: (query: string) => void
+    createLabel?: string
 }) {
     const [open, setOpen] = useState(false)
     const [query, setQuery] = useState('')
@@ -27,6 +30,11 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
     const selected = options.find(o => o.value === value)
     const q = query.trim().toLowerCase()
     const filtered = q ? options.filter(o => o.label.toLowerCase().includes(q)) : options
+    // The create action sits after the options, at index filtered.length.
+    const createIndex = onCreate ? filtered.length : -1
+    const lastIndex = filtered.length - 1 + (onCreate ? 1 : 0)
+    const exactMatch = options.some(o => o.label.toLowerCase() === q)
+    const createText = q && !exactMatch ? `Add “${query.trim()}”` : createLabel
 
     useEffect(() => {
         if (!open) return
@@ -54,6 +62,11 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
         buttonRef.current?.focus()
     }
 
+    const create = () => {
+        setOpen(false)
+        onCreate?.(query.trim())
+    }
+
     const onKeyDown = (e: React.KeyboardEvent) => {
         if (!open) {
             if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
@@ -69,13 +82,14 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
             buttonRef.current?.focus()
         } else if (e.key === 'ArrowDown') {
             e.preventDefault()
-            setActive(i => Math.min(i + 1, filtered.length - 1))
+            setActive(i => Math.min(i + 1, lastIndex))
         } else if (e.key === 'ArrowUp') {
             e.preventDefault()
             setActive(i => Math.max(i - 1, 0))
         } else if (e.key === 'Enter') {
             e.preventDefault()
-            if (filtered[active]) pick(filtered[active])
+            if (active === createIndex) create()
+            else if (filtered[active]) pick(filtered[active])
         } else if (e.key === 'Tab') {
             setOpen(false)
         }
@@ -116,7 +130,7 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
                             role="combobox"
                             aria-expanded="true"
                             aria-controls={listId}
-                            aria-activedescendant={filtered[active] ? `${listId}-${active}` : undefined}
+                            aria-activedescendant={active <= lastIndex ? `${listId}-${active}` : undefined}
                             className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                         />
                     </div>
@@ -143,6 +157,23 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
                             </li>
                         ))}
                     </ul>
+                    {onCreate && (
+                        <div className="border-t p-1">
+                            <button
+                                type="button"
+                                id={`${listId}-${createIndex}`}
+                                onPointerMove={() => setActive(createIndex)}
+                                onClick={create}
+                                className={cn(
+                                    'flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm font-medium text-primary transition-colors',
+                                    active === createIndex && 'bg-primary/10'
+                                )}
+                            >
+                                <Plus className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{createText}</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

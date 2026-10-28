@@ -7,6 +7,7 @@ import { Loader2, Plus } from 'lucide-react'
 import { Button, Input } from '@/components/ui/core'
 import { Combobox } from '@/components/ui/Combobox'
 import { useOverlay } from '@/components/ui/useOverlay'
+import { NewBorrowerModal } from './NewBorrowerModal'
 import { saveErrorMessage } from '@/lib/covenants/new-covenant'
 import {
     buildFacilityRequestBody, EMPTY_FACILITY_FORM, facilityFormErrors, type FacilityForm,
@@ -38,9 +39,13 @@ function Field({ label, error, children }: { label: string, error?: string, chil
     )
 }
 
-export function NewFacilityModal({ borrowers, onClose }: { borrowers: Borrower[], onClose: () => void }) {
+export function NewFacilityModal({ borrowers: initialBorrowers, onClose }: { borrowers: Borrower[], onClose: () => void }) {
     const router = useRouter()
     const [form, setForm] = useState<FacilityForm>(EMPTY_FACILITY_FORM)
+    // Borrowers added from this form join the list without a reload.
+    const [borrowers, setBorrowers] = useState(initialBorrowers)
+    // Name to pre-fill when the Add Borrower modal is open on top; null when closed.
+    const [newBorrowerName, setNewBorrowerName] = useState<string | null>(null)
     const [submitted, setSubmitted] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [message, setMessage] = useState<string | null>(null)
@@ -108,6 +113,8 @@ export function NewFacilityModal({ borrowers, onClose }: { borrowers: Borrower[]
                             placeholder="Select a borrower"
                             searchPlaceholder="Search borrowers…"
                             invalid={!!shown.borrowerOrgId}
+                            onCreate={name => setNewBorrowerName(name)}
+                            createLabel="Add new borrower"
                         />
                     </Field>
                     <Field label="Facility reference (optional)" error={shown.facilityReference}>
@@ -146,6 +153,22 @@ export function NewFacilityModal({ borrowers, onClose }: { borrowers: Borrower[]
                     </Button>
                 </div>
             </form>
+
+            {newBorrowerName !== null && createPortal(
+                <NewBorrowerModal
+                    stacked
+                    initialName={newBorrowerName}
+                    onClose={() => setNewBorrowerName(null)}
+                    onCreated={borrower => {
+                        setBorrowers(list => [...list, borrower].sort((a, b) => a.name.localeCompare(b.name)))
+                        setForm(f => ({ ...f, borrowerOrgId: borrower.id }))
+                        setNewBorrowerName(null)
+                        // So the page's borrower list includes it next time the form opens.
+                        router.refresh()
+                    }}
+                />,
+                document.body
+            )}
         </div>
     )
 }
