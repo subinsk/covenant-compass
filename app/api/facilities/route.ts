@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
-import { facilityScope, isLender } from '@/lib/auth/access'
-import { FacilityStatus, OrgType, Prisma } from '@prisma/client'
+import { borrowerScope, facilityScope, isLender } from '@/lib/auth/access'
+import { FacilityStatus, Prisma } from '@prisma/client'
 import { createFacilitySchema, facilityQuerySchema } from '@/lib/validation/facility'
 import { invalidInput, queryParams } from '@/lib/validation/http'
 import { recordAudit } from '@/lib/audit/record'
@@ -58,11 +58,12 @@ export async function POST(request: Request) {
     if (!parsed.success) return invalidInput(parsed.error)
     const body = parsed.data
 
-    const borrower = await prisma.organization.findUnique({
-        where: { id: body.borrowerOrgId },
-        select: { type: true }
+    // Only a borrower this lender can see (one it added or already lends to).
+    const borrower = await prisma.organization.findFirst({
+        where: { id: body.borrowerOrgId, ...borrowerScope(session) },
+        select: { id: true }
     })
-    if (!borrower || borrower.type !== OrgType.BORROWER) {
+    if (!borrower) {
         return NextResponse.json({
             error: 'Invalid input',
             issues: { formErrors: [], fieldErrors: { borrowerOrgId: ['Borrower organization not found'] } }

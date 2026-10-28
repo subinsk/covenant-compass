@@ -4,9 +4,12 @@ import { useEffect, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, Search, X } from 'lucide-react'
 
-// Search box for the facilities list. Updates ?q= as you type (debounced) and
+// Search box for a server-rendered list. Updates ?q= as you type (debounced) and
 // drops ?page= so results start from the first page.
-export function FacilitySearch() {
+export function FacilitySearch({ placeholder = 'Search name, reference or borrower', label = 'Search facilities' }: {
+    placeholder?: string
+    label?: string
+}) {
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
@@ -34,8 +37,8 @@ export function FacilitySearch() {
                 type="search"
                 value={value}
                 onChange={e => setValue(e.target.value)}
-                placeholder="Search name, reference or borrower"
-                aria-label="Search facilities"
+                placeholder={placeholder}
+                aria-label={label}
                 className="h-10 w-full rounded-md border border-input bg-card pl-9 pr-9 text-sm shadow-sm transition-shadow placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
             />
             {isPending ? (

@@ -7,6 +7,7 @@ import * as facilitiesRoute from '@/app/api/facilities/route'
 import * as covenantsRoute from '@/app/api/facilities/[facilityId]/covenants/route'
 import * as occurrencesRoute from '@/app/api/facilities/[facilityId]/occurrences/route'
 import * as organizationsRoute from '@/app/api/organizations/route'
+import * as borrowersRoute from '@/app/api/borrowers/route'
 import { seedTwoTenants } from './fixtures'
 
 vi.mock('@/lib/auth/session', () => ({ getSession: vi.fn() }))
@@ -147,11 +148,11 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
     })
 
     describe('GET /api/organizations', () => {
-        it('gives a lender its own org plus borrower orgs, never another lender', async () => {
+        it("gives a lender its own org plus its own borrowers, never another lender's", async () => {
             signInAs(f.sessions.bankA)
             const body = await (await organizationsRoute.GET(request('/api/organizations'))).json()
             const names = body.organizations.map((x: { name: string }) => x.name)
-            expect(names).toEqual(['Acme', 'Bank A', 'Globex'])
+            expect(names).toEqual(['Acme', 'Bank A'])
         })
 
         it('gives a borrower only its own org', async () => {
@@ -164,6 +165,49 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
             signInAs(f.sessions.globex)
             const body = await (await organizationsRoute.GET(request('/api/organizations?type=BORROWER'))).json()
             expect(body.organizations.map((x: { id: string }) => x.id)).toEqual([f.orgs.globex.id])
+        })
+    })
+
+    describe('POST /api/borrowers', () => {
+        const post = (body: unknown) => borrowersRoute.POST(request('/api/borrowers', { method: 'POST', body: JSON.stringify(body) }))
+        const listOrgs = async () => (await (await organizationsRoute.GET(request('/api/organizations?type=BORROWER'))).json())
+            .organizations.map((x: { name: string }) => x.name)
+
+        it("adds a borrower only its lender can see", async () => {
+            signInAs(f.sessions.bankA)
+            const res = await post({ name: 'Initech', contactEmail: 'cfo@initech.test' })
+            expect(res.status).toBe(201)
+            const created = await res.json()
+            expect(created.createdByOrgId).toBe(f.orgs.bankA.id)
+            expect(await listOrgs()).toEqual(['Acme', 'Initech'])
+
+            signInAs(f.sessions.bankB)
+            expect(await listOrgs()).toEqual(['Globex'])
+        })
+
+        it("stops another lender putting a facility on that borrower", async () => {
+            const initech = await prisma.organization.findFirstOrThrow({ where: { name: 'Initech' } })
+            signInAs(f.sessions.bankB)
+            const res = await facilitiesRoute.POST(request('/api/facilities', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Sneaky', borrowerOrgId: initech.id, currency: 'USD', totalCommitment: 1,
+                    startDate: '2026-01-01', endDate: '2027-01-01',
+                }),
+            }))
+            expect(res.status).toBe(400)
+            expect(await prisma.facility.count({ where: { name: 'Sneaky' } })).toBe(0)
+        })
+
+        it('rejects a duplicate name for the same lender', async () => {
+            signInAs(f.sessions.bankA)
+            expect((await post({ name: 'initech' })).status).toBe(409)
+        })
+
+        it('forbids borrowers from adding borrowers', async () => {
+            signInAs(f.sessions.acme)
+            expect((await post({ name: 'Hooli' })).status).toBe(403)
+            expect(await prisma.organization.count({ where: { name: 'Hooli' } })).toBe(0)
         })
     })
 })

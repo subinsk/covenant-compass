@@ -1,5 +1,5 @@
 'use client'
-import { LayoutDashboard, FileText, Calendar, Bell, LogOut, FileStack, ClipboardCheck, ChartLine } from 'lucide-react'
+import { LayoutDashboard, FileText, Calendar, Bell, LogOut, FileStack, ClipboardCheck, ChartLine, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/components/ui/core'
@@ -27,6 +27,7 @@ export default function AppLayout({ children, isBorrower }: { children: React.Re
         : [
             { href: '/', label: 'Dashboard', icon: LayoutDashboard },
             { href: '/facilities', label: 'Facilities', icon: FileStack },
+            { href: '/borrowers', label: 'Borrowers', icon: Building2 },
             { href: '/calendar', label: 'Calendar', icon: Calendar },
             { href: '/reports', label: 'Reports', icon: FileText },
             { href: '/review', label: 'Review', icon: ClipboardCheck },

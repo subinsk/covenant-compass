@@ -24,10 +24,22 @@ export function facilityScope(session: ScopeSession): Prisma.FacilityWhereInput 
         : { borrowerOrgId: session.orgId }
 }
 
-// Organizations a session can list: lenders see their own org plus borrower orgs
+// Borrowers a lender can see: the ones it added, plus the ones it already lends to.
+// Borrower records hold contact details, so lenders don't see each other's.
+export function borrowerScope(session: ScopeSession): Prisma.OrganizationWhereInput {
+    return {
+        type: 'BORROWER',
+        OR: [
+            { createdByOrgId: session.orgId },
+            { borrowerFacilities: { some: { lenderOrgId: session.orgId } } },
+        ],
+    }
+}
+
+// Organizations a session can list: lenders see their own org plus their borrowers
 // (needed to create facilities); borrowers see only their own org.
 export function organizationScope(session: ScopeSession): Prisma.OrganizationWhereInput {
     return isLender(session)
-        ? { OR: [{ id: session.orgId }, { type: 'BORROWER' }] }
+        ? { OR: [{ id: session.orgId }, borrowerScope(session)] }
         : { id: session.orgId }
 }
