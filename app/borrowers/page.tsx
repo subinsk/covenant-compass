@@ -50,7 +50,7 @@ export default async function BorrowersPage({ searchParams }: { searchParams: Pr
             </div>
 
             <div className="animate-fade-up" style={{ animationDelay: '60ms' }}>
-                <FacilitySearch placeholder="Search name, industry, country or contact" label="Search borrowers" />
+                <FacilitySearch placeholder="Search borrowers or contacts" label="Search borrowers" />
             </div>
 
             <Card className="overflow-hidden animate-fade-up" style={{ animationDelay: '120ms' }}>
@@ -66,7 +66,7 @@ export default async function BorrowersPage({ searchParams }: { searchParams: Pr
                     ) : (
                         <table className="w-full text-left text-sm">
                             <thead className="border-b bg-muted/50">
-                                <tr className="text-muted-foreground">
+                                <tr className="whitespace-nowrap text-muted-foreground">
                                     <th className="h-11 px-4 font-medium">Borrower</th>
                                     <th className="hidden h-11 px-4 font-medium lg:table-cell">Industry</th>
                                     <th className="hidden h-11 px-4 font-medium md:table-cell">Country</th>

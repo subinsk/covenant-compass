@@ -138,31 +138,31 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
 
                 <Section icon={<Building2 className="h-4 w-4" />} title="Company">
                     <Field label="Name" error={shown.name}>
-                        <Input autoFocus value={form.name} onChange={set('name')} placeholder="Initech" />
+                        <Input autoFocus value={form.name} onChange={set('name')} placeholder="e.g. Initech" />
                     </Field>
                     <Field label="Legal name (optional)">
-                        <Input value={form.legalName} onChange={set('legalName')} placeholder="Initech Holdings Ltd." />
+                        <Input value={form.legalName} onChange={set('legalName')} placeholder="e.g. Initech Holdings Ltd." />
                     </Field>
                     <Field label="Registration number (optional)">
                         <Input value={form.registrationNumber} onChange={set('registrationNumber')} />
                     </Field>
                     <Field label="Industry (optional)">
-                        <Input value={form.industry} onChange={set('industry')} placeholder="Manufacturing" />
+                        <Input value={form.industry} onChange={set('industry')} placeholder="e.g. Manufacturing" />
                     </Field>
                     <Field label="Country (optional)">
-                        <Input value={form.country} onChange={set('country')} placeholder="United States" />
+                        <Input value={form.country} onChange={set('country')} placeholder="e.g. United States" />
                     </Field>
                     <Field label="Website (optional)">
-                        <Input value={form.website} onChange={set('website')} placeholder="initech.com" />
+                        <Input value={form.website} onChange={set('website')} placeholder="e.g. initech.com" />
                     </Field>
                 </Section>
 
                 <Section icon={<UserRound className="h-4 w-4" />} title="Primary contact">
                     <Field label="Name (optional)">
-                        <Input value={form.contactName} onChange={set('contactName')} placeholder="Bill Lumbergh" />
+                        <Input value={form.contactName} onChange={set('contactName')} placeholder="e.g. Bill Lumbergh" />
                     </Field>
                     <Field label="Email (optional)" error={shown.contactEmail}>
-                        <Input type="email" value={form.contactEmail} onChange={set('contactEmail')} placeholder="cfo@initech.com" />
+                        <Input type="email" value={form.contactEmail} onChange={set('contactEmail')} placeholder="e.g. cfo@initech.com" />
                     </Field>
                     <Field label="Phone (optional)">
                         <Input type="tel" value={form.contactPhone} onChange={set('contactPhone')} />
