@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/core'
+import { useOverlay } from '@/components/ui/useOverlay'
 import { Loader2, Wand2, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import {
@@ -9,7 +10,7 @@ import {
     saveErrorMessage, type CovenantFormData,
 } from '@/lib/covenants/new-covenant'
 
-export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: boolean; onClose: () => void; facilityId: string }) {
+export function AddCovenantModal({ onClose, facilityId }: { onClose: () => void; facilityId: string }) {
     const router = useRouter()
     const [step, setStep] = useState<'input' | 'review'>('input')
     const [clauseText, setClauseText] = useState('')
@@ -17,7 +18,7 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
     const [formData, setFormData] = useState<CovenantFormData>({})
     const [message, setMessage] = useState<string | null>(null)
 
-    if (!isOpen) return null
+    const backdrop = useOverlay(onClose)
 
     const handleParse = async () => {
         if (!clauseText) return
@@ -72,8 +73,8 @@ export function AddCovenantModal({ isOpen, onClose, facilityId }: { isOpen: bool
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-            <div className="bg-background w-full max-w-lg rounded-lg shadow-lg border p-6 space-y-6">
+        <div {...backdrop} className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 p-4 backdrop-blur-sm animate-fade-in sm:items-center">
+            <div role="dialog" aria-modal="true" className="bg-background w-full max-w-lg rounded-lg shadow-lg border p-6 space-y-6 animate-fade-up">
                 <div className="flex justify-between items-center">
                     <h2 className="text-lg font-semibold">
                         {step === 'input' ? 'Add New Covenant' : 'Review & Save'}
