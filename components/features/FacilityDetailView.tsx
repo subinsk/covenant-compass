@@ -11,12 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, Button, cn } from '@/c
 import { Combobox } from '@/components/ui/Combobox'
 import { Pager } from '@/components/ui/Pager'
 import { AddCovenantModal } from './AddCovenantModal'
+import { AgreementExtractionCard } from './AgreementExtractionCard'
 import { OccurrenceDetails } from './OccurrenceDetails'
 import type { Prisma } from '@prisma/client'
 import { formatPeriod } from '@/lib/format/period'
 import type { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
 import { nextDueByCovenant } from '@/lib/occurrences/next-due'
 import { onTimeRate } from '@/lib/dashboard/metrics'
+import type { UploadLimits } from '@/lib/agreements/upload-check'
+import type { AgreementRunView } from '@/lib/extraction/runs'
 import {
     SCHEDULE_STATUSES, dueLabel, filterSchedule, openObligations, statusCounts, termProgress, type ScheduleFilter,
 } from '@/lib/facilities/detail'
@@ -56,17 +59,27 @@ const DUE_TONE = { overdue: 'text-red-600', soon: 'text-amber-600', later: 'text
 const titleCase = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, ' ')
 const fmtDate = (d: Date | string) => format(new Date(d), 'd MMM yyyy')
 
-export default function FacilityDetailView({ facility, initialTab, canManage, now: nowIso, commitment }: {
+export default function FacilityDetailView({ facility, initialTab, canManage, now: nowIso, commitment, agreementRuns, uploadLimits }: {
     facility: FacilityView
     initialTab?: string
     canManage: boolean
     // Server time, so relative labels render the same on server and client.
     now: string
     commitment: { compact: string; full: string }
+    agreementRuns: AgreementRunView[]
+    uploadLimits: UploadLimits
 }) {
     const now = new Date(nowIso)
     const [activeTab, setActiveTab] = useState(tabs.some(t => t.id === initialTab) ? initialTab! : 'overview')
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+    // Runs started from the modal show at once; each is dropped here once the server's list has it.
+    const [startedRuns, setStartedRuns] = useState<AgreementRunView[]>([])
+    const [knownRuns, setKnownRuns] = useState(agreementRuns)
+    if (knownRuns !== agreementRuns) {
+        setKnownRuns(agreementRuns)
+        setStartedRuns(runs => runs.filter(r => !agreementRuns.some(s => s.id === r.id)))
+    }
+    const runs = [...startedRuns, ...agreementRuns]
     // Look the occurrence up by id so the panel shows fresh data after router.refresh().
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [filter, setFilter] = useState<ScheduleFilter>({ status: 'ALL', covenantId: null })
@@ -165,6 +178,8 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                     onClick={() => openSchedule({ status: overdueCount > 0 ? 'OVERDUE' : 'PENDING' })}
                 />
             </div>
+
+            {runs.length > 0 && <AgreementExtractionCard runs={runs} />}
 
             {/* Tabs */}
             <div className="border-b animate-fade-up" style={{ animationDelay: '200ms' }}>
@@ -496,7 +511,12 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                 document.body
             )}
             {isAddModalOpen && createPortal(
-                <AddCovenantModal onClose={() => setIsAddModalOpen(false)} facilityId={facility.id} />,
+                <AddCovenantModal
+                    onClose={() => setIsAddModalOpen(false)}
+                    facilityId={facility.id}
+                    uploadLimits={uploadLimits}
+                    onUploadStarted={run => setStartedRuns(runs => [run, ...runs])}
+                />,
                 document.body
             )}
         </div>

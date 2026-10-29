@@ -4,6 +4,8 @@ import { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
 import { notFound, redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
+import { ACCEPTED_EXTENSIONS, MAX_UPLOAD_BYTES } from '@/lib/agreements/upload'
+import { agreementRunsWhere, type AgreementRunView } from '@/lib/extraction/runs'
 
 export default async function FacilityPage({ params, searchParams }: {
     params: Promise<{ id: string }>
@@ -30,6 +32,35 @@ export default async function FacilityPage({ params, searchParams }: {
     })
 
     if (!facility || !canAccessFacility(session, facility)) return notFound()
+    const canManage = isLender(session)
+
+    // Agreement uploads and their covenants waiting for review; only lenders review them.
+    const now = new Date()
+    const runRows = canManage
+        ? await prisma.extractionRun.findMany({
+            where: agreementRunsWhere(facility.id, now),
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true, status: true, stage: true, error: true, sourceName: true, sourceUrl: true, createdAt: true,
+                _count: { select: { items: true } },
+                items: {
+                    where: { status: 'PENDING' },
+                    orderBy: { citationStart: 'asc' },
+                    select: { id: true, name: true, metric: true, operator: true, limit: true, page: true, verified: true, quote: true },
+                },
+            },
+        })
+        : []
+    const agreementRuns: AgreementRunView[] = runRows.map(run => ({
+        id: run.id,
+        status: run.status,
+        stage: run.stage,
+        error: run.error,
+        sourceName: run.sourceName ?? run.sourceUrl?.split('/').pop() ?? null,
+        itemCount: run._count.items,
+        createdAt: run.createdAt.toISOString(),
+        items: run.items,
+    }))
 
     // Formatted here: Node and browsers can disagree on compact number output,
     // which would break hydration if the client formatted it again.
@@ -40,8 +71,10 @@ export default async function FacilityPage({ params, searchParams }: {
     return <FacilityDetailView
         facility={{ ...facility, totalCommitment: facility.totalCommitment.toString() }}
         initialTab={tab}
-        canManage={isLender(session)}
-        now={new Date().toISOString()}
+        canManage={canManage}
+        now={now.toISOString()}
         commitment={{ compact: money(true), full: money(false) }}
+        agreementRuns={agreementRuns}
+        uploadLimits={{ maxBytes: MAX_UPLOAD_BYTES, extensions: [...ACCEPTED_EXTENSIONS] }}
     />
 }
