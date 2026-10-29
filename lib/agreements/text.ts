@@ -29,7 +29,7 @@ const PAGE = '\f'
 const PAGE_BREAK_STYLE = /(?:page-)?break-(?:before|after)\s*:\s*(?:always|page)/i
 const INLINE_GAP_STYLE = /(?:padding|margin)-left\s*:\s*(?:0*\.0*[1-9]|0*[1-9])|display\s*:\s*inline-block/i
 const LINE_THROUGH_STYLE = /text-decoration[^;"']*line-through/i
-const PAGE_NUMBER_LINE = /^[-\u2013\u2014\s]*(?:page\s+)?(?:\d{1,4}|[ivxlc]{1,7}|[a-z]-\d{1,4})[-\u2013\u2014\s]*$/i
+export const PAGE_NUMBER_LINE = /^[-\u2013\u2014\s]*(?:page\s+)?(?:\d{1,4}|[ivxlc]{1,7}|[a-z]-\d{1,4})[-\u2013\u2014\s]*$/i
 
 export function htmlToText(html: string): string {
     return htmlToPages(html).text
