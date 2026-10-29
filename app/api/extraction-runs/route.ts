@@ -6,7 +6,7 @@ import { recordAudit } from '@/lib/audit/record'
 import { loadAgreementText } from '@/lib/agreements/text'
 import { extractCovenants } from '@/lib/extraction/extract'
 import { extractionConfigError, importAgreementSchema, runExtraction } from '@/lib/extraction/import'
-import { completeRun, failRun } from '@/lib/extraction/store'
+import { completeRun, failRun, setRunStage } from '@/lib/extraction/store'
 import { invalidInput } from '@/lib/validation/http'
 
 // POST /api/extraction-runs  { facilityId, url }
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
     }
 
-    const configError = extractionConfigError(process.env)
+    const configError = extractionConfigError(process.env, 'edgar')
     if (configError) return NextResponse.json({ error: configError }, { status: 400 })
 
     const run = await prisma.extractionRun.create({
@@ -39,6 +39,7 @@ export async function POST(request: Request) {
             model: process.env.LLM_MODEL!,
             promptChars: 0,
             status: 'RUNNING',
+            stage: 'READING',
             createdByUserId: session.userId,
         },
     })
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
         extract: (text) => extractCovenants(text),
         complete: (runId, result) => completeRun(prisma, runId, result),
         fail: (runId, error) => failRun(prisma, runId, error),
+        onStage: (runId, stage) => setRunStage(prisma, runId, stage),
     })
 
     return NextResponse.json(run, { status: 202 })

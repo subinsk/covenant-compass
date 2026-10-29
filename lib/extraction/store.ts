@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
 import { pageAt } from '@/lib/agreements/text'
 import type { CitedCovenant } from './extract'
+import type { ExtractionStage } from './import'
 
 export type SaveExtractionInput = {
     facilityId: string
@@ -74,6 +75,10 @@ export function completeRun(
             items: { create: input.covenants.map((c) => extractedCovenantRow(c, input.pageStarts)) },
         },
     })
+}
+
+export function setRunStage(prisma: RunUpdateStore, runId: string, stage: ExtractionStage) {
+    return prisma.extractionRun.update({ where: { id: runId }, data: { stage } })
 }
 
 export function failRun(prisma: RunUpdateStore, runId: string, error: string) {

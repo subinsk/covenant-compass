@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CitedCovenant } from './extract'
-import { completeRun, failRun, saveExtraction, type ExtractionStore, type RunUpdateStore } from './store'
+import { completeRun, failRun, saveExtraction, setRunStage, type ExtractionStore, type RunUpdateStore } from './store'
 
 const leverage: CitedCovenant = {
     name: 'Maximum Leverage Ratio',
@@ -122,6 +122,14 @@ describe('completeRun', () => {
         expect(data).toMatchObject({ status: 'DONE', promptChars: 99 })
         expect(data.items.create).toHaveLength(1)
         expect(data.items.create[0]).toMatchObject({ name: 'Maximum Leverage Ratio', page: 3 })
+    })
+})
+
+describe('setRunStage', () => {
+    it('saves the stage on the run', async () => {
+        const { store, update } = fakeUpdateStore()
+        await setRunStage(store, 'run-1', 'EXTRACTING')
+        expect(update).toHaveBeenCalledWith({ where: { id: 'run-1' }, data: { stage: 'EXTRACTING' } })
     })
 })
 

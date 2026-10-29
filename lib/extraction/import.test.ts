@@ -42,12 +42,19 @@ describe('importAgreementSchema', () => {
 
 describe('extractionConfigError', () => {
     it('is null when everything is set', () => {
-        expect(extractionConfigError({ LLM_BASE_URL: 'http://x', LLM_MODEL: 'm', SEC_USER_AGENT: 'a b@c.d' })).toBeNull()
+        expect(extractionConfigError({ LLM_BASE_URL: 'http://x', LLM_MODEL: 'm', SEC_USER_AGENT: 'a b@c.d' }, 'edgar')).toBeNull()
     })
 
     it('names the missing settings', () => {
-        expect(extractionConfigError({ LLM_MODEL: 'm', SEC_USER_AGENT: '' })).toBe(
+        expect(extractionConfigError({ LLM_MODEL: 'm', SEC_USER_AGENT: '' }, 'edgar')).toBe(
             'Agreement import is not configured on this server (missing LLM_BASE_URL, SEC_USER_AGENT)',
+        )
+    })
+
+    it('does not need the SEC user agent for uploads', () => {
+        expect(extractionConfigError({ LLM_BASE_URL: 'http://x', LLM_MODEL: 'm' }, 'upload')).toBeNull()
+        expect(extractionConfigError({ LLM_BASE_URL: 'http://x', SEC_USER_AGENT: 'a b@c.d' }, 'upload')).toBe(
+            'Agreement import is not configured on this server (missing LLM_MODEL)',
         )
     })
 })
@@ -113,6 +120,29 @@ describe('runExtraction', () => {
             fail: vi.fn(async () => { throw new Error('db down') }),
         })
         expect(await runExtraction('run-1', EDGAR, steps)).toBe('FAILED')
+        expect(error).toHaveBeenCalled()
+        error.mockRestore()
+    })
+
+    it('reports each stage before the step it starts', async () => {
+        const calls: string[] = []
+        const steps = fakeSteps({
+            load: vi.fn(async () => { calls.push('load'); return { text: 't', pageStarts: [] } }),
+            extract: vi.fn(async () => { calls.push('extract'); return { covenants: [], promptChars: 1 } }),
+            complete: vi.fn(async () => { calls.push('complete') }),
+            onStage: vi.fn(async (_runId: string, stage: string) => { calls.push(stage) }),
+        })
+        expect(await runExtraction('run-1', 'agreement.pdf', steps)).toBe('DONE')
+        expect(calls).toEqual(['READING', 'load', 'EXTRACTING', 'extract', 'SAVING', 'complete'])
+        expect(steps.onStage).toHaveBeenCalledWith('run-1', 'READING')
+    })
+
+    it('carries on when saving a stage fails', async () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const steps = fakeSteps({ onStage: vi.fn(async () => { throw new Error('db down') }) })
+        expect(await runExtraction('run-1', EDGAR, steps)).toBe('DONE')
+        expect(steps.complete).toHaveBeenCalled()
+        expect(steps.fail).not.toHaveBeenCalled()
         expect(error).toHaveBeenCalled()
         error.mockRestore()
     })
