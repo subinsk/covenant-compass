@@ -1,4 +1,5 @@
 import { htmlToPages, PAGE_NUMBER_LINE, type AgreementText } from './text'
+import { fileExtension } from './upload-check'
 
 // Turns an uploaded agreement file into the same text shape htmlToPages gives
 // for EDGAR exhibits (one line per paragraph, pageStarts per physical page), so
@@ -12,11 +13,6 @@ export class UnreadableDocumentError extends Error {}
 
 // Fewer characters than this per page on average means there's no real text layer.
 const MIN_CHARS_PER_PAGE = 20
-
-export function fileExtension(fileName: string): string {
-    const dot = fileName.lastIndexOf('.')
-    return dot < 0 ? '' : fileName.slice(dot).toLowerCase()
-}
 
 export async function readAgreementFile(bytes: Uint8Array, fileName: string): Promise<AgreementText> {
     const ext = fileExtension(fileName)

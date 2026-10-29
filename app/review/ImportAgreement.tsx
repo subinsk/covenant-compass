@@ -7,7 +7,8 @@ import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '
 export type RunSummary = {
     id: string
     facilityName: string
-    sourceUrl: string
+    sourceUrl: string | null
+    sourceName: string | null
     status: 'RUNNING' | 'DONE' | 'FAILED'
     error: string | null
     itemCount: number
@@ -97,9 +98,13 @@ export default function ImportAgreement({ facilities, runs }: { facilities: { id
                                 <div className="min-w-0">
                                     <span className="font-medium">{run.facilityName}</span>
                                     <span className="text-muted-foreground"> · {run.createdAt.slice(0, 16).replace('T', ' ')} · </span>
-                                    <a href={run.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-muted-foreground hover:underline">
-                                        {run.sourceUrl.split('/').pop()}
-                                    </a>
+                                    {run.sourceUrl ? (
+                                        <a href={run.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-muted-foreground hover:underline">
+                                            {run.sourceUrl.split('/').pop()}
+                                        </a>
+                                    ) : (
+                                        <span className="break-all text-muted-foreground">{run.sourceName ?? 'Uploaded agreement'}</span>
+                                    )}
                                 </div>
                                 <RunStatus run={run} />
                             </li>

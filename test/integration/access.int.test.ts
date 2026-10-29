@@ -8,9 +8,18 @@ import * as covenantsRoute from '@/app/api/facilities/[facilityId]/covenants/rou
 import * as occurrencesRoute from '@/app/api/facilities/[facilityId]/occurrences/route'
 import * as organizationsRoute from '@/app/api/organizations/route'
 import * as borrowersRoute from '@/app/api/borrowers/route'
+import * as uploadRunRoute from '@/app/api/facilities/[facilityId]/extraction-runs/route'
+import * as runStatusRoute from '@/app/api/extraction-runs/[id]/route'
+import { runExtraction } from '@/lib/extraction/import'
+import { agreementRunsWhere } from '@/lib/extraction/runs'
 import { seedTwoTenants } from './fixtures'
 
 vi.mock('@/lib/auth/session', () => ({ getSession: vi.fn() }))
+// Never run a real extraction (it would call the LLM); the upload route only needs to start one.
+vi.mock('@/lib/extraction/import', async (importOriginal) => ({
+    ...await importOriginal<typeof import('@/lib/extraction/import')>(),
+    runExtraction: vi.fn(async () => 'DONE'),
+}))
 
 type Fixtures = Awaited<ReturnType<typeof seedTwoTenants>>
 
@@ -35,6 +44,7 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
 
     beforeEach(() => {
         vi.mocked(getSession).mockReset()
+        vi.mocked(runExtraction).mockClear()
     })
 
     afterAll(async () => {
@@ -208,6 +218,110 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
             signInAs(f.sessions.acme)
             expect((await post({ name: 'Hooli' })).status).toBe(403)
             expect(await prisma.organization.count({ where: { name: 'Hooli' } })).toBe(0)
+        })
+    })
+
+    describe('POST /api/facilities/[facilityId]/extraction-runs', () => {
+        beforeAll(() => {
+            vi.stubEnv('LLM_BASE_URL', 'http://llm.invalid')
+            vi.stubEnv('LLM_MODEL', 'test-model')
+        })
+
+        afterAll(() => {
+            vi.unstubAllEnvs()
+        })
+
+        function upload(facilityId: string, file?: File) {
+            const form = new FormData()
+            if (file) form.append('file', file)
+            return uploadRunRoute.POST(request('/x', { method: 'POST', body: form }), facilityParams(facilityId))
+        }
+
+        const agreement = () => new File(['The Borrower shall not permit the Leverage Ratio to exceed 3.50:1.00.'], 'Credit Agreement.txt')
+
+        it('forbids a borrower, even on its own facility', async () => {
+            signInAs(f.sessions.acme)
+            expect((await upload(f.facilityA.id, agreement())).status).toBe(403)
+        })
+
+        it("hides another lender's facility", async () => {
+            signInAs(f.sessions.bankB)
+            expect((await upload(f.facilityA.id, agreement())).status).toBe(404)
+        })
+
+        it('rejects a missing file or an unsupported type', async () => {
+            signInAs(f.sessions.bankA)
+            expect((await upload(f.facilityA.id)).status).toBe(400)
+            expect((await upload(f.facilityA.id, new File(['x'], 'agreement.doc'))).status).toBe(400)
+            expect((await upload(f.facilityA.id, new File([], 'agreement.pdf'))).status).toBe(400)
+        })
+
+        it('creates nothing and starts nothing when refused', async () => {
+            expect(await prisma.extractionRun.count()).toBe(0)
+            expect(runExtraction).not.toHaveBeenCalled()
+        })
+
+        it('starts a background run for the lender and returns 202', async () => {
+            signInAs(f.sessions.bankA)
+            const res = await upload(f.facilityA.id, agreement())
+            expect(res.status).toBe(202)
+            const run = await res.json()
+            expect(run).toMatchObject({
+                facilityId: f.facilityA.id, status: 'RUNNING', stage: 'READING', sourceName: 'Credit Agreement.txt',
+                sourceUrl: null, model: 'test-model', createdByUserId: f.sessions.bankA.userId,
+            })
+            expect(runExtraction).toHaveBeenCalledWith(run.id, 'Credit Agreement.txt', expect.objectContaining({ load: expect.any(Function) }))
+            expect(await prisma.auditLog.count({ where: { entityId: f.facilityA.id, action: 'CREATE' } })).toBe(1)
+        })
+    })
+
+    describe('GET /api/extraction-runs/[id]', () => {
+        const get = (id: string) => runStatusRoute.GET(request('/x'), { params: Promise.resolve({ id }) })
+
+        it("returns the run's progress to its facility's lender", async () => {
+            const run = await prisma.extractionRun.findFirstOrThrow({ where: { facilityId: f.facilityA.id } })
+            signInAs(f.sessions.bankA)
+            const res = await get(run.id)
+            expect(res.status).toBe(200)
+            expect(await res.json()).toMatchObject({
+                id: run.id, status: 'RUNNING', stage: 'READING', error: null, sourceName: 'Credit Agreement.txt', itemCount: 0,
+            })
+        })
+
+        it("returns 404 to another lender and 403 to a borrower", async () => {
+            const run = await prisma.extractionRun.findFirstOrThrow({ where: { facilityId: f.facilityA.id } })
+            signInAs(f.sessions.bankB)
+            const res = await get(run.id)
+            expect(res.status).toBe(404)
+            expect(JSON.stringify(await res.json())).not.toContain('Credit Agreement')
+            signInAs(f.sessions.acme)
+            expect((await get(run.id)).status).toBe(403)
+        })
+    })
+
+    describe('agreementRunsWhere (facility page)', () => {
+        it('shows running runs, runs with covenants to review, and recent failures or empty results', async () => {
+            const now = new Date()
+            const hoursAgo = (h: number) => new Date(now.getTime() - h * 60 * 60 * 1000)
+            const item = { name: 'Leverage', metric: 'leverage', operator: '<=', limit: 3.5, quote: 'q', verified: true, limitInQuote: true, operatorCorrected: false, directionConflict: false }
+            const make = (sourceName: string, status: 'RUNNING' | 'DONE' | 'FAILED', createdAt: Date, items: { status: 'PENDING' | 'APPROVED' }[] = []) =>
+                prisma.extractionRun.create({
+                    data: {
+                        facilityId: f.facilityB.id, sourceName, status, createdAt, model: 'm', promptChars: 0,
+                        items: { create: items.map(i => ({ ...item, status: i.status })) },
+                    },
+                })
+            await make('running', 'RUNNING', hoursAgo(1))
+            await make('pending', 'DONE', hoursAgo(72), [{ status: 'PENDING' }, { status: 'APPROVED' }])
+            await make('all-reviewed', 'DONE', hoursAgo(2), [{ status: 'APPROVED' }])
+            await make('failed-recent', 'FAILED', hoursAgo(2))
+            await make('failed-old', 'FAILED', hoursAgo(30))
+            await make('empty-recent', 'DONE', hoursAgo(2))
+            await make('empty-old', 'DONE', hoursAgo(30))
+            await make('pending-too-old', 'DONE', hoursAgo(24 * 8), [{ status: 'PENDING' }])
+
+            const runs = await prisma.extractionRun.findMany({ where: agreementRunsWhere(f.facilityB.id, now), select: { sourceName: true } })
+            expect(runs.map(r => r.sourceName).sort()).toEqual(['empty-recent', 'failed-recent', 'pending', 'running'])
         })
     })
 })
