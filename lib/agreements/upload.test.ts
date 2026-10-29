@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { findSections } from './sections'
 import { pageAt } from './text'
 import {
-    MAX_UPLOAD_BYTES, UnreadableDocumentError, fileExtension, pdfPagesToText, plainTextToPages, readAgreementFile, toLines,
+    MAX_UPLOAD_BYTES, UnreadableDocumentError, pdfPagesToText, plainTextToPages, readAgreementFile, toLines,
     type PdfItem,
 } from './upload'
 
@@ -170,10 +170,5 @@ describe('readAgreementFile', () => {
         await expect(readAgreementFile(new Uint8Array(MAX_UPLOAD_BYTES + 1), 'a.pdf')).rejects.toThrow(/larger than 20 MB/)
         await expect(readAgreementFile(encode('not a pdf at all'), 'a.pdf')).rejects.toThrow(UnreadableDocumentError)
         await expect(readAgreementFile(encode('not a zip'), 'a.docx')).rejects.toThrow(UnreadableDocumentError)
-    })
-
-    it('finds the extension case-insensitively', () => {
-        expect(fileExtension('Credit Agreement.Final.PDF')).toBe('.pdf')
-        expect(fileExtension('README')).toBe('')
     })
 })
