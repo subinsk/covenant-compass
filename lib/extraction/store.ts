@@ -4,7 +4,9 @@ import type { CitedCovenant } from './extract'
 
 export type SaveExtractionInput = {
     facilityId: string
-    sourceUrl: string
+    // An EDGAR URL, or the file name for an uploaded agreement
+    sourceUrl?: string
+    sourceName?: string
     model: string
     promptChars: number
     covenants: CitedCovenant[]
@@ -44,6 +46,7 @@ export function saveExtraction(prisma: ExtractionStore, input: SaveExtractionInp
         data: {
             facilityId: input.facilityId,
             sourceUrl: input.sourceUrl,
+            sourceName: input.sourceName,
             model: input.model,
             promptChars: input.promptChars,
             createdByUserId: input.userId,

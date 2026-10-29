@@ -295,11 +295,15 @@ model AuditLog {
 model ExtractionRun {
   id              String           @id @default(uuid())
   facilityId      String
-  sourceUrl       String
+  // EDGAR imports have a sourceUrl; uploads have a sourceName (the file name)
+  sourceUrl       String?
+  sourceName      String?
   model           String
   promptChars     Int
   status          ExtractionStatus @default(DONE)
   error           String?
+  // While RUNNING: READING | EXTRACTING | SAVING
+  stage           String?
   createdByUserId String?
   createdAt       DateTime         @default(now())
 

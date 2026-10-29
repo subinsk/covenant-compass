@@ -28,6 +28,7 @@ export default async function ReviewPage() {
         id: run.id,
         facilityName: run.facility.name,
         sourceUrl: run.sourceUrl,
+        sourceName: run.sourceName,
         status: run.status,
         error: run.error,
         itemCount: run._count.items,
@@ -37,7 +38,7 @@ export default async function ReviewPage() {
     const items = await prisma.extractedCovenant.findMany({
         where: { status: 'PENDING', run: { facility: facilityScope(session) } },
         orderBy: [{ run: { createdAt: 'desc' } }, { citationStart: 'asc' }],
-        include: { run: { select: { sourceUrl: true, model: true, createdAt: true, facility: { select: { id: true, name: true } } } } },
+        include: { run: { select: { sourceUrl: true, sourceName: true, model: true, createdAt: true, facility: { select: { id: true, name: true } } } } },
     })
 
     // Group by facility, keeping the newest-run-first order.
@@ -102,7 +103,9 @@ export default async function ReviewPage() {
                                         {item.quote}
                                     </blockquote>
                                     <p className="text-xs text-muted-foreground">
-                                        <a href={item.run.sourceUrl} className="hover:underline" target="_blank" rel="noreferrer">Source</a>
+                                        {item.run.sourceUrl
+                                            ? <a href={item.run.sourceUrl} className="hover:underline" target="_blank" rel="noreferrer">Source</a>
+                                            : <span>{item.run.sourceName ?? 'Uploaded agreement'}</span>}
                                         {' · '}{item.run.model}{' · '}{item.run.createdAt.toISOString().slice(0, 10)}
                                     </p>
                                 </CardContent>
