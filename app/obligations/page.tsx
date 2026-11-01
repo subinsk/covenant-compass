@@ -6,7 +6,7 @@ import { facilityScope, isLender } from '@/lib/auth/access'
 import { Card, CardContent, Badge, cn } from '@/components/ui/core'
 import { ChevronRight, Inbox } from 'lucide-react'
 import { format } from 'date-fns'
-import { OBLIGATION_FILTERS, obligationWhere, parseObligationFilter } from '@/lib/dashboard/filters'
+import { OBLIGATION_FILTERS, isEvidenceReceived, obligationWhere, parseObligationFilter } from '@/lib/dashboard/filters'
 
 const STATUS_BADGE = {
     PENDING: 'secondary',
@@ -31,7 +31,8 @@ export default async function ObligationsPage({ searchParams }: { searchParams: 
         where: obligationWhere(filter, facilityScope(session), new Date()),
         include: {
             facility: { select: { id: true, name: true } },
-            covenant: { select: { title: true } }
+            covenant: { select: { title: true } },
+            documents: { select: { id: true }, take: 1 },
         },
         orderBy: { dueDate: filter === 'closed' ? 'desc' : 'asc' }
     })
@@ -81,7 +82,10 @@ export default async function ObligationsPage({ searchParams }: { searchParams: 
                                             <p className="truncate text-xs text-muted-foreground">{occ.facility.name}</p>
                                         </div>
                                         <div className="shrink-0 text-right">
-                                            <Badge variant={STATUS_BADGE[occ.status]}>{occ.status}</Badge>
+                                            <div className="flex flex-wrap justify-end gap-1">
+                                                {isEvidenceReceived(occ) && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Evidence received</Badge>}
+                                                <Badge variant={STATUS_BADGE[occ.status]}>{occ.status}</Badge>
+                                            </div>
                                             <p className="mt-1 text-xs text-muted-foreground">Due {format(occ.dueDate, 'd MMM yyyy')}</p>
                                         </div>
                                         <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />

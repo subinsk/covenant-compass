@@ -7,6 +7,7 @@ import { Badge, Button } from '@/components/ui/core'
 import { useOverlay } from '@/components/ui/useOverlay'
 import { format } from 'date-fns'
 import { formatPeriod } from '@/lib/format/period'
+import { isEvidenceReceived } from '@/lib/dashboard/filters'
 import type { OccurrenceAction } from '@/lib/occurrences/transitions'
 import type { FacilityView } from './FacilityDetailView'
 
@@ -85,6 +86,7 @@ export function OccurrenceDetails({ occurrence, canManage, onClose }: {
                         <Badge variant={occurrence.status === 'COMPLETED' ? 'success' : occurrence.status === 'OVERDUE' ? 'destructive' : 'secondary'}>
                             {occurrence.status}
                         </Badge>
+                        {isEvidenceReceived(occurrence) && <Badge variant="outline" className="ml-1 border-blue-200 bg-blue-50 text-blue-700">Evidence received</Badge>}
                     </Row>
                     <Row label="RAG"><Badge variant={RAG_VARIANT[occurrence.ragStatus]}>{occurrence.ragStatus}</Badge></Row>
                     <Row label="Completed">{occurrence.completionDate ? format(new Date(occurrence.completionDate), 'd MMM yyyy') : '—'}</Row>

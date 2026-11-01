@@ -20,6 +20,7 @@ import { formatPeriod } from '@/lib/format/period'
 import type { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
 import { nextDueByCovenant } from '@/lib/occurrences/next-due'
 import { onTimeRate } from '@/lib/dashboard/metrics'
+import { isEvidenceReceived } from '@/lib/dashboard/filters'
 import type { UploadLimits } from '@/lib/agreements/upload-check'
 import type { AgreementRunView } from '@/lib/extraction/runs'
 import {
@@ -485,7 +486,10 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                                                         <p className="truncate pl-4 text-xs text-muted-foreground">{formatPeriod(occ.periodStartDate, occ.periodEndDate)}</p>
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <Badge variant={STATUS_BADGE[occ.status]}>{STATUS_LABEL[occ.status]}</Badge>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            <Badge variant={STATUS_BADGE[occ.status]}>{STATUS_LABEL[occ.status]}</Badge>
+                                                            {isEvidenceReceived(occ) && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Evidence received</Badge>}
+                                                        </div>
                                                     </td>
                                                     <td className="hidden px-4 py-3 text-center tabular-nums text-muted-foreground md:table-cell">
                                                         {occ.documents.length || '—'}

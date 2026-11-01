@@ -1,6 +1,12 @@
 import { prisma } from '@/lib/prisma'
 import { OccurrenceStatus, RagStatus, NotificationType, Prisma } from '@prisma/client'
 import { addDays } from 'date-fns'
+import { buildPayload, notifyOccurrence } from '@/lib/notifications/notify'
+
+const occurrenceForNotice = {
+    covenant: { select: { title: true } },
+    facility: { select: { id: true, name: true, lenderOrgId: true, borrowerOrgId: true, createdByUserId: true } },
+} satisfies Prisma.CovenantOccurrenceInclude
 
 /**
  * Recalculates RAG status for all pending occurrences.
@@ -8,42 +14,31 @@ import { addDays } from 'date-fns'
  */
 export async function updateComplianceStatuses() {
     const now = new Date()
-    const warningsToCreate: Prisma.NotificationCreateManyInput[] = []
-    const alertsToCreate: Prisma.NotificationCreateManyInput[] = []
 
-    // 1. Find PENDING items that are past due -> Turn to OVERDUE / RED
+    // 1. PENDING items that are past due -> OVERDUE / RED, and tell both sides once.
     const overdueItems = await prisma.covenantOccurrence.findMany({
         where: {
             status: 'PENDING',
             dueDate: { lt: now }
         },
-        include: { covenant: true, facility: true }
+        include: occurrenceForNotice,
     })
 
     console.log(`[RAG Engine] Found ${overdueItems.length} overdue items.`)
 
     for (const item of overdueItems) {
-        // Update item
-        await prisma.covenantOccurrence.update({
-            where: { id: item.id },
-            data: {
-                status: OccurrenceStatus.OVERDUE,
-                ragStatus: RagStatus.RED
-            }
-        })
-
-        // Create Alert Notification
-        alertsToCreate.push({
-            userId: item.facility.createdByUserId, // Notify Facility Creator
-            type: NotificationType.OVERDUE,
-            channel: 'IN_APP',
-            covenantOccurrenceId: item.id,
-            payload: {
-                title: `Overdue: ${item.covenant.title}`,
-                message: `Obligation for ${item.facility.name} was due on ${item.dueDate.toLocaleDateString()}. Status set to RED.`,
-                entityId: item.facility.id,
-                entityType: 'FACILITY'
-            }
+        await prisma.$transaction(async (tx) => {
+            const claimed = await tx.covenantOccurrence.updateMany({
+                where: { id: item.id, status: 'PENDING' },
+                data: { status: OccurrenceStatus.OVERDUE, ragStatus: RagStatus.RED },
+            })
+            if (claimed.count === 0) return
+            // An obligation can go overdue again after a reopen; notify only the first time.
+            const alreadyNotified = await tx.notification.findFirst({
+                where: { covenantOccurrenceId: item.id, type: NotificationType.OVERDUE },
+                select: { id: true },
+            })
+            if (!alreadyNotified) await notifyOccurrence(tx, NotificationType.OVERDUE, item)
         })
     }
 
@@ -58,11 +53,12 @@ export async function updateComplianceStatuses() {
                 lte: addDays(now, 7)
             }
         },
-        include: { covenant: true, facility: true }
+        include: occurrenceForNotice,
     })
 
     console.log(`[RAG Engine] Found ${approachingItems.length} items approaching deadline.`)
 
+    const warningsToCreate: Prisma.NotificationCreateManyInput[] = []
     for (const item of approachingItems) {
         await prisma.covenantOccurrence.update({
             where: { id: item.id },
@@ -71,30 +67,20 @@ export async function updateComplianceStatuses() {
             }
         })
 
-        // Create Warning Notification
+        // Due-soon reminder for the facility creator
         warningsToCreate.push({
             userId: item.facility.createdByUserId,
             type: NotificationType.REMINDER,
             channel: 'IN_APP',
+            sentAt: now,
             covenantOccurrenceId: item.id,
-            payload: {
-                title: `Due Soon: ${item.covenant.title}`,
-                message: `Obligation for ${item.facility.name} is due on ${item.dueDate.toLocaleDateString()}. please ensure compliance.`
-            }
+            payload: buildPayload(item),
         })
     }
 
-    // Bulk insert notifications
-    const allNotifs = [...alertsToCreate, ...warningsToCreate]
-
-    if (allNotifs.length > 0) {
-        // We filter out notifications where userId might be missing (though schema says required on Facility)
-        const validNotifs = allNotifs.filter(n => n.userId)
-
+    if (warningsToCreate.length > 0) {
         try {
-            await prisma.notification.createMany({
-                data: validNotifs
-            })
+            await prisma.notification.createMany({ data: warningsToCreate })
         } catch (e) {
             console.error("Failed to create notifications", e)
         }

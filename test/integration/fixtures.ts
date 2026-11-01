@@ -37,6 +37,7 @@ export async function seedTwoTenants() {
 
 export async function clearDatabase() {
     await prisma.auditLog.deleteMany()
+    await prisma.notification.deleteMany()
     await prisma.document.deleteMany()
     await prisma.extractedCovenant.deleteMany()
     await prisma.extractionRun.deleteMany()

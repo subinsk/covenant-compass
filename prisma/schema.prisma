@@ -80,6 +80,9 @@ enum NotificationType {
   OVERDUE
   BREACH
   REMINDER
+  EVIDENCE_RECEIVED
+  COMPLETED
+  WAIVED
 }
 
 enum NotificationChannel {
@@ -285,6 +288,8 @@ model Notification {
 
   user       User                @relation(fields: [userId], references: [id])
   occurrence CovenantOccurrence? @relation(fields: [covenantOccurrenceId], references: [id])
+
+  @@index([userId, createdAt])
 }
 
 model AuditLog {

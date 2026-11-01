@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
 import { recordAudit } from '@/lib/audit/record'
+import { notifyOccurrence } from '@/lib/notifications/notify'
 import { occurrenceActionSchema, transition } from '@/lib/occurrences/transitions'
 import { invalidInput } from '@/lib/validation/http'
 
@@ -10,6 +11,7 @@ const AUDIT_ACTION = { complete: 'COMPLETE', waive: 'WAIVE', reopen: 'UPDATE' } 
 
 // PATCH /api/occurrences/[id]  { action: 'complete' | 'waive' | 'reopen', reason? }
 // Lenders mark an obligation complete, waive it (reason required) or reopen it.
+// Completing or waiving notifies the borrower's users.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     const session = await getSession()
@@ -20,7 +22,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         where: { id },
         select: {
             id: true, status: true, dueDate: true, notes: true,
-            facility: { select: { lenderOrgId: true, borrowerOrgId: true } },
+            covenant: { select: { title: true } },
+            facility: { select: { id: true, name: true, lenderOrgId: true, borrowerOrgId: true } },
         },
     })
     if (!occurrence || !canAccessFacility(session, occurrence.facility)) {
@@ -48,6 +51,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             userId: session.userId,
             details: { action, previousStatus: occurrence.status, newStatus: result.change.status, reason: reason?.trim() || null },
         })
+        if (action !== 'reopen') {
+            const actor = await tx.user.findUnique({ where: { id: session.userId }, select: { name: true } })
+            await notifyOccurrence(tx, action === 'complete' ? 'COMPLETED' : 'WAIVED', occurrence, { actorName: actor?.name, reason })
+        }
         return true
     })
     if (!updated) return NextResponse.json({ error: 'Obligation was changed by someone else. Reload and try again.' }, { status: 409 })
