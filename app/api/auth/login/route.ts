@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { signToken } from '@/lib/auth/jwt'
+import { setSessionCookie } from '@/lib/auth/cookie'
 import { verifyPassword } from '@/lib/auth/password'
 
 export async function POST(request: Request) {
@@ -17,19 +17,11 @@ export async function POST(request: Request) {
             include: { organization: true }
         })
 
-        if (!user || !(await verifyPassword(password, user.passwordHash))) {
+        // Invited users have no password until they accept their invite.
+        if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
             return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
         }
 
-        // Generate JWT
-        const token = await signToken({
-            userId: user.id,
-            email: user.email,
-            role: user.role,
-            orgId: user.organizationId
-        })
-
-        // Set Cookie
         const response = NextResponse.json({
             user: {
                 id: user.id,
@@ -39,16 +31,7 @@ export async function POST(request: Request) {
                 organization: user.organization
             }
         })
-
-        response.cookies.set('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 60 * 60 * 24 // 1 day
-        })
-
-        return response
+        return await setSessionCookie(response, user)
 
     } catch (error) {
         console.error('Login error:', error)

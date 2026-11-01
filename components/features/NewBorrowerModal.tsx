@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { Building2, Loader2, Plus, UserRound } from 'lucide-react'
+import { Building2, CircleCheck, Loader2, Plus, UserRound } from 'lucide-react'
 import { Button, Input } from '@/components/ui/core'
 import { useOverlay } from '@/components/ui/useOverlay'
+import { InviteLink, type Invite } from '@/components/features/BorrowerInvite'
 import { saveErrorMessage } from '@/lib/covenants/new-covenant'
 import {
     EMPTY_BORROWER_FORM, borrowerFormErrors, buildBorrowerRequestBody, type BorrowerForm,
@@ -64,7 +65,9 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
     // Opened on top of another modal: sits above it.
     stacked?: boolean
 }) {
-    const backdrop = useOverlay(onClose)
+    // Set once the borrower is saved with a contact email: the modal then shows the invite.
+    const [created, setCreated] = useState<{ borrower: CreatedBorrower; invite: Invite | null; inviteError?: string } | null>(null)
+    const backdrop = useOverlay(() => (created ? onCreated(created.borrower) : onClose()))
     const [form, setForm] = useState<BorrowerForm>({ ...EMPTY_BORROWER_FORM, name: initialName })
     const [submitted, setSubmitted] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
@@ -99,7 +102,9 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
             })
             const data = await res.json().catch(() => null)
             if (res.ok && data?.id) {
-                onCreated({ id: data.id, name: data.name })
+                const borrower = { id: data.id, name: data.name }
+                if (data.invite || data.inviteError) setCreated({ borrower, invite: data.invite, inviteError: data.inviteError })
+                else onCreated(borrower)
                 return
             }
             const fieldErrors = data?.issues?.fieldErrors as Record<string, string[] | undefined> | undefined
@@ -113,6 +118,28 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
             setMessage('Could not reach the server. Try again.')
         }
         setIsSaving(false)
+    }
+
+    if (created) {
+        const done = () => onCreated(created.borrower)
+        return (
+            <div
+                {...backdrop}
+                className={`fixed inset-0 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in ${stacked ? 'z-[60]' : 'z-50'}`}
+            >
+                <div role="dialog" aria-modal="true" aria-labelledby="borrower-added-title" className="bg-background w-full max-w-lg rounded-lg border p-6 shadow-lg space-y-4 animate-fade-up">
+                    <h2 id="borrower-added-title" className="flex items-center gap-2 text-lg font-semibold">
+                        <CircleCheck className="h-5 w-5 text-emerald-600" />
+                        {created.borrower.name} added
+                    </h2>
+                    {created.invite && <InviteLink invite={created.invite} />}
+                    {created.inviteError && <p role="status" className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-800">{created.inviteError}</p>}
+                    <div className="flex justify-end border-t pt-4">
+                        <Button type="button" onClick={done}>Done</Button>
+                    </div>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -161,7 +188,7 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
                     <Field label="Name (optional)">
                         <Input value={form.contactName} onChange={set('contactName')} placeholder="e.g. Bill Lumbergh" />
                     </Field>
-                    <Field label="Email (optional)" error={shown.contactEmail}>
+                    <Field label="Email (optional, gets a portal invite)" error={shown.contactEmail}>
                         <Input type="email" value={form.contactEmail} onChange={set('contactEmail')} placeholder="e.g. cfo@initech.com" />
                     </Field>
                     <Field label="Phone (optional)">

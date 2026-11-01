@@ -18,8 +18,8 @@ export default function AppLayout({ children, isBorrower }: { children: React.Re
         }
     }
 
-    // Don't show layout on login
-    if (pathname === '/login') return <>{children}</>
+    // Don't show layout on login or invite pages
+    if (pathname === '/login' || pathname.startsWith('/invite/')) return <>{children}</>
 
     // Borrowers only have the portal; the lender pages redirect them there.
     const navItems = isBorrower

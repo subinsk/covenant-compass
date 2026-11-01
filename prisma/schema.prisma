@@ -114,16 +114,22 @@ enum AuditAction {
   COMPLETE
   WAIVE
   UPLOAD_DOCUMENT
+  INVITE
+  ACCEPT_INVITE
 }
 
 model User {
   id             String       @id @default(uuid())
   name           String
   email          String       @unique
-  passwordHash   String
+  // Null while the user is invited but hasn't set a password yet.
+  passwordHash   String?
   role           UserRole
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  // Pending invite: SHA-256 of the token in the invite link, and when it stops working.
+  inviteTokenHash String?
+  inviteExpiresAt DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -134,6 +140,8 @@ model User {
   uploadedDocuments  Document[]
   extractionRuns     ExtractionRun[]
   reviewedExtractions ExtractedCovenant[]
+
+  @@index([inviteTokenHash])
 }
 
 model Organization {

@@ -12,6 +12,8 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/api/auth') ||
         pathname === '/api/system/cron' || // authorized by CRON_SECRET in the route
         pathname === '/login' ||
+        pathname.startsWith('/invite/') || // invite links for new borrower users
+        pathname === '/api/invite' ||
         pathname.endsWith('.ico')
     ) {
         return NextResponse.next()

@@ -9,6 +9,8 @@ import { borrowerScope, facilityScope, isLender } from '@/lib/auth/access'
 import { Card, CardContent } from '@/components/ui/core'
 import { FacilitySearch } from '@/components/features/FacilitySearch'
 import { NewBorrowerButton } from '@/components/features/NewBorrowerModal'
+import { BorrowerPortalAccess } from '@/components/features/BorrowerInvite'
+import { portalAccess } from '@/lib/borrowers/invite'
 
 export default async function BorrowersPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
     const session = await getSession()
@@ -34,6 +36,12 @@ export default async function BorrowersPage({ searchParams }: { searchParams: Pr
         prisma.facility.groupBy({ by: ['borrowerOrgId'], where: facilityScope(session), _count: true }),
         prisma.facility.groupBy({ by: ['borrowerOrgId'], where: { ...facilityScope(session), status: 'ACTIVE' }, _count: true }),
     ])
+    const users = await prisma.user.findMany({
+        where: { organizationId: { in: borrowers.map(b => b.id) } },
+        select: { organizationId: true, email: true, passwordHash: true, inviteExpiresAt: true },
+    })
+    const now = new Date()
+    const access = (orgId: string) => portalAccess(users.filter(u => u.organizationId === orgId), now)
     const facilities = new Map(facilityCounts.map(g => [g.borrowerOrgId, g._count]))
     const active = new Map(activeCounts.map(g => [g.borrowerOrgId, g._count]))
 
@@ -72,6 +80,7 @@ export default async function BorrowersPage({ searchParams }: { searchParams: Pr
                                     <th className="hidden h-11 px-4 font-medium md:table-cell">Country</th>
                                     <th className="hidden h-11 px-4 font-medium lg:table-cell">Primary contact</th>
                                     <th className="h-11 px-4 text-center font-medium">Facilities</th>
+                                    <th className="h-11 px-4 font-medium">Portal</th>
                                     <th className="hidden h-11 px-4 font-medium xl:table-cell">Added</th>
                                     <th className="w-10" />
                                 </tr>
@@ -119,6 +128,9 @@ export default async function BorrowersPage({ searchParams }: { searchParams: Pr
                                             <td className="px-4 py-3 text-center tabular-nums">
                                                 <span className="font-medium">{count}</span>
                                                 {count > 0 && <p className="text-xs text-muted-foreground">{active.get(b.id) ?? 0} active</p>}
+                                            </td>
+                                            <td className="whitespace-nowrap px-4 py-3">
+                                                <BorrowerPortalAccess borrowerId={b.id} borrowerName={b.name} contactEmail={b.contactEmail} access={access(b.id)} />
                                             </td>
                                             <td className="hidden whitespace-nowrap px-4 py-3 text-muted-foreground xl:table-cell" title={b.createdAt.toLocaleString()}>
                                                 {formatDistanceToNow(b.createdAt, { addSuffix: true })}
