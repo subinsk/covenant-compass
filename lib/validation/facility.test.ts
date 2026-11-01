@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { createFacilitySchema, facilityQuerySchema } from './facility'
+import { createFacilitySchema, facilityQuerySchema, updateFacilitySchema } from './facility'
 
 const valid = {
     name: 'Term Loan A',
@@ -47,6 +47,32 @@ describe('createFacilitySchema', () => {
         const result = createFacilitySchema.safeParse({ ...valid, endDate: '2024-12-31' })
         expect(result.success).toBe(false)
         if (!result.success) expect(z.flattenError(result.error).fieldErrors.endDate).toBeDefined()
+    })
+})
+
+describe('updateFacilitySchema', () => {
+    it('accepts a partial update', () => {
+        expect(updateFacilitySchema.parse({ status: 'MATURED' })).toEqual({ status: 'MATURED' })
+        expect(updateFacilitySchema.parse({ currency: 'eur', totalCommitment: '5000' })).toEqual({ currency: 'EUR', totalCommitment: 5000 })
+        expect(updateFacilitySchema.parse({})).toEqual({})
+    })
+
+    it('clears the description when blank', () => {
+        expect(updateFacilitySchema.parse({ description: '  ' })).toEqual({ description: null })
+    })
+
+    it('rejects a borrower change, an unknown status and blank required fields', () => {
+        expect(updateFacilitySchema.safeParse({ borrowerOrgId: 'org-2' }).success).toBe(false)
+        expect(updateFacilitySchema.safeParse({ status: 'CLOSED' }).success).toBe(false)
+        expect(updateFacilitySchema.safeParse({ name: ' ' }).success).toBe(false)
+        expect(updateFacilitySchema.safeParse({ facilityReference: '' }).success).toBe(false)
+    })
+
+    it('rejects an end date on or before the start date when both are given', () => {
+        const result = updateFacilitySchema.safeParse({ startDate: '2026-01-01', endDate: '2026-01-01' })
+        expect(result.success).toBe(false)
+        if (!result.success) expect(z.flattenError(result.error).fieldErrors.endDate).toBeDefined()
+        expect(updateFacilitySchema.safeParse({ endDate: '2026-01-01' }).success).toBe(true)
     })
 })
 

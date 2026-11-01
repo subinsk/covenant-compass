@@ -3,16 +3,18 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { Building2, CircleCheck, Loader2, Plus, UserRound } from 'lucide-react'
+import { Building2, CircleCheck, Loader2, Pencil, Plus, UserRound } from 'lucide-react'
 import { Button, Input } from '@/components/ui/core'
 import { useOverlay } from '@/components/ui/useOverlay'
 import { InviteLink, type Invite } from '@/components/features/BorrowerInvite'
 import { saveErrorMessage } from '@/lib/covenants/new-covenant'
 import {
-    EMPTY_BORROWER_FORM, borrowerFormErrors, buildBorrowerRequestBody, type BorrowerForm,
+    EMPTY_BORROWER_FORM, borrowerFormErrors, buildBorrowerRequestBody, buildBorrowerUpdateBody, type BorrowerForm,
 } from '@/lib/borrowers/new-borrower'
 
 export type CreatedBorrower = { id: string; name: string }
+// The borrower being edited, with the form pre-filled from it.
+export type EditedBorrower = { id: string; form: BorrowerForm }
 
 export function NewBorrowerButton() {
     const router = useRouter()
@@ -26,7 +28,34 @@ export function NewBorrowerButton() {
             {isOpen && createPortal(
                 <NewBorrowerModal
                     onClose={() => setIsOpen(false)}
-                    onCreated={() => { setIsOpen(false); router.refresh() }}
+                    onSaved={() => { setIsOpen(false); router.refresh() }}
+                />,
+                document.body
+            )}
+        </>
+    )
+}
+
+export function EditBorrowerButton({ borrower }: { borrower: EditedBorrower }) {
+    const router = useRouter()
+    const [isOpen, setIsOpen] = useState(false)
+    return (
+        <>
+            <button
+                type="button"
+                onClick={() => setIsOpen(true)}
+                aria-label={`Edit ${borrower.form.name}`}
+                title="Edit borrower"
+                // Above the row's stretched link.
+                className="relative z-10 rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+                <Pencil className="h-4 w-4" />
+            </button>
+            {isOpen && createPortal(
+                <NewBorrowerModal
+                    borrower={borrower}
+                    onClose={() => setIsOpen(false)}
+                    onSaved={() => { setIsOpen(false); router.refresh() }}
                 />,
                 document.body
             )}
@@ -56,25 +85,28 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
     )
 }
 
-// Form for a new borrower organization. `initialName` pre-fills the name, e.g.
-// with what was typed in a borrower search.
-export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked = false }: {
+// Form for a new borrower organization, or for editing one when `borrower` is given.
+// `initialName` pre-fills the name, e.g. with what was typed in a borrower search.
+export function NewBorrowerModal({ onClose, onSaved, borrower, initialName = '', stacked = false }: {
     onClose: () => void
-    onCreated: (borrower: CreatedBorrower) => void
+    onSaved: (borrower: CreatedBorrower) => void
+    borrower?: EditedBorrower
     initialName?: string
     // Opened on top of another modal: sits above it.
     stacked?: boolean
 }) {
+    const isEdit = !!borrower
     // Set once the borrower is saved with a contact email: the modal then shows the invite.
     const [created, setCreated] = useState<{ borrower: CreatedBorrower; invite: Invite | null; inviteError?: string } | null>(null)
-    const backdrop = useOverlay(() => (created ? onCreated(created.borrower) : onClose()))
-    const [form, setForm] = useState<BorrowerForm>({ ...EMPTY_BORROWER_FORM, name: initialName })
+    const backdrop = useOverlay(() => (created ? onSaved(created.borrower) : onClose()))
+    const [form, setForm] = useState<BorrowerForm>(borrower?.form ?? { ...EMPTY_BORROWER_FORM, name: initialName })
     const [submitted, setSubmitted] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [message, setMessage] = useState<string | null>(null)
     const [serverErrors, setServerErrors] = useState<Partial<Record<keyof BorrowerForm, string>>>({})
 
-    const body = buildBorrowerRequestBody(form)
+    // Editing sends every field so a blanked one is cleared.
+    const body = isEdit ? buildBorrowerUpdateBody(form) : buildBorrowerRequestBody(form)
     const errors = borrowerFormErrors(body)
     const shown = { ...(submitted ? errors : {}), ...serverErrors }
     const set = (field: keyof BorrowerForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -95,16 +127,16 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
         setIsSaving(true)
         setMessage(null)
         try {
-            const res = await fetch('/api/borrowers', {
-                method: 'POST',
+            const res = await fetch(isEdit ? `/api/borrowers/${borrower.id}` : '/api/borrowers', {
+                method: isEdit ? 'PATCH' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             })
             const data = await res.json().catch(() => null)
             if (res.ok && data?.id) {
-                const borrower = { id: data.id, name: data.name }
-                if (data.invite || data.inviteError) setCreated({ borrower, invite: data.invite, inviteError: data.inviteError })
-                else onCreated(borrower)
+                const saved = { id: data.id, name: data.name }
+                if (data.invite || data.inviteError) setCreated({ borrower: saved, invite: data.invite, inviteError: data.inviteError })
+                else onSaved(saved)
                 return
             }
             const fieldErrors = data?.issues?.fieldErrors as Record<string, string[] | undefined> | undefined
@@ -121,7 +153,7 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
     }
 
     if (created) {
-        const done = () => onCreated(created.borrower)
+        const done = () => onSaved(created.borrower)
         return (
             <div
                 {...backdrop}
@@ -157,7 +189,7 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
             >
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 id="new-borrower-title" className="text-lg font-semibold">Add Borrower</h2>
+                        <h2 id="new-borrower-title" className="text-lg font-semibold">{isEdit ? 'Edit Borrower' : 'Add Borrower'}</h2>
                         <p className="text-sm text-muted-foreground">Only your organization can see this borrower.</p>
                     </div>
                     <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">✕</button>
@@ -188,8 +220,13 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
                     <Field label="Name (optional)">
                         <Input value={form.contactName} onChange={set('contactName')} placeholder="e.g. Bill Lumbergh" />
                     </Field>
-                    <Field label="Email (optional, gets a portal invite)" error={shown.contactEmail}>
+                    <Field label={isEdit ? 'Email (optional)' : 'Email (optional, gets a portal invite)'} error={shown.contactEmail}>
                         <Input type="email" value={form.contactEmail} onChange={set('contactEmail')} placeholder="e.g. cfo@initech.com" />
+                        {isEdit && (
+                            <span className="block text-xs text-muted-foreground">
+                                Doesn&apos;t change the login email of a portal user who already exists.
+                            </span>
+                        )}
                     </Field>
                     <Field label="Phone (optional)">
                         <Input type="tel" value={form.contactPhone} onChange={set('contactPhone')} />
@@ -212,7 +249,7 @@ export function NewBorrowerModal({ onClose, onCreated, initialName = '', stacked
                     <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
                     <Button type="submit" disabled={isSaving}>
                         {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        Add Borrower
+                        {isEdit ? 'Save changes' : 'Add Borrower'}
                     </Button>
                 </div>
             </form>
