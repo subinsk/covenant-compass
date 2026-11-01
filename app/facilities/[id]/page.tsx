@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
 import { ACCEPTED_EXTENSIONS, MAX_UPLOAD_BYTES } from '@/lib/agreements/upload'
 import { agreementRunsWhere, type AgreementRunView } from '@/lib/extraction/runs'
+import { failStaleRuns } from '@/lib/extraction/store'
 
 export default async function FacilityPage({ params, searchParams }: {
     params: Promise<{ id: string }>
@@ -36,6 +37,7 @@ export default async function FacilityPage({ params, searchParams }: {
 
     // Agreement uploads and their covenants waiting for review; only lenders review them.
     const now = new Date()
+    if (canManage) await failStaleRuns(prisma, now, { facilityId: facility.id })
     const runRows = canManage
         ? await prisma.extractionRun.findMany({
             where: agreementRunsWhere(facility.id, now),

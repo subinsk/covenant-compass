@@ -84,3 +84,36 @@ export function setRunStage(prisma: RunUpdateStore, runId: string, stage: Extrac
 export function failRun(prisma: RunUpdateStore, runId: string, error: string) {
     return prisma.extractionRun.update({ where: { id: runId }, data: { status: 'FAILED', error } })
 }
+
+// A run still RUNNING this long after it started has stopped: the routes allow 300 seconds
+// (maxDuration), so it timed out or the server restarted before it could finish.
+export const STALE_RUN_MS = 15 * 60 * 1000
+export const STALE_RUN_ERROR = 'Extraction timed out or the server restarted. Try again.'
+export const RUN_IN_PROGRESS_ERROR = 'An extraction is already running for this facility. Wait for it to finish before starting another.'
+
+export function isStaleRun(run: { status: string, createdAt: Date }, now: Date) {
+    return run.status === 'RUNNING' && now.getTime() - run.createdAt.getTime() > STALE_RUN_MS
+}
+
+export type StaleRunStore = {
+    extractionRun: Pick<PrismaClient['extractionRun'], 'updateMany'>
+}
+
+// Marks stale runs (only those matching `where`, if given) as failed.
+export function failStaleRuns(prisma: StaleRunStore, now: Date, where: Prisma.ExtractionRunWhereInput = {}) {
+    return prisma.extractionRun.updateMany({
+        where: { ...where, status: 'RUNNING', createdAt: { lt: new Date(now.getTime() - STALE_RUN_MS) } },
+        data: { status: 'FAILED', error: STALE_RUN_ERROR },
+    })
+}
+
+export type ActiveRunStore = {
+    extractionRun: Pick<PrismaClient['extractionRun'], 'updateMany' | 'findFirst'>
+}
+
+// The facility's run that is still in progress, if any. Stale runs are failed first, so they
+// don't block a new import.
+export async function findActiveRun(prisma: ActiveRunStore, facilityId: string, now: Date) {
+    await failStaleRuns(prisma, now, { facilityId })
+    return prisma.extractionRun.findFirst({ where: { facilityId, status: 'RUNNING' }, select: { id: true } })
+}

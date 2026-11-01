@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
 import { formatThreshold } from '@/lib/extraction/review'
+import { failStaleRuns } from '@/lib/extraction/store'
 import { Badge, Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
 import ReviewActions from './ReviewActions'
 import ImportAgreement, { type RunSummary } from './ImportAgreement'
@@ -18,6 +19,7 @@ export default async function ReviewPage() {
         select: { id: true, name: true },
         orderBy: { name: 'asc' },
     })
+    await failStaleRuns(prisma, new Date(), { facility: facilityScope(session) })
     const recentRuns = await prisma.extractionRun.findMany({
         where: { facility: facilityScope(session) },
         orderBy: { createdAt: 'desc' },
