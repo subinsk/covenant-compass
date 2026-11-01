@@ -5,8 +5,10 @@ import { borrowerScope, isLender } from '@/lib/auth/access'
 import { createBorrowerSchema } from '@/lib/validation/borrower'
 import { invalidInput } from '@/lib/validation/http'
 import { recordAudit } from '@/lib/audit/record'
+import { issueInvite } from '@/lib/borrowers/invite'
 
-// Adds a borrower organization owned by the signed-in lender's org.
+// Adds a borrower organization owned by the signed-in lender's org. With a contact
+// email, it also invites that contact as the borrower's portal user and returns the link.
 export async function POST(request: Request) {
     const session = await getSession()
     if (!session) {
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     try {
-        const borrower = await prisma.$transaction(async (tx) => {
+        const { created, invite } = await prisma.$transaction(async (tx) => {
             const created = await tx.organization.create({
                 data: { ...body, type: 'BORROWER', createdByOrgId: session.orgId },
             })
@@ -44,9 +46,19 @@ export async function POST(request: Request) {
                 userId: session.userId,
                 details: { name: created.name, type: 'BORROWER' },
             })
-            return created
+            const invite = created.contactEmail
+                ? await issueInvite(tx, {
+                    orgId: created.id, email: created.contactEmail, name: created.contactName ?? undefined, performedBy: session.userId,
+                })
+                : null
+            return { created, invite }
         })
-        return NextResponse.json(borrower, { status: 201 })
+        return NextResponse.json({
+            ...created,
+            invite: invite?.ok ? { email: invite.email, path: invite.path, expiresAt: invite.expiresAt } : null,
+            // The borrower is still added when the invite can't be (e.g. the email is taken).
+            inviteError: invite && !invite.ok ? invite.error : undefined,
+        }, { status: 201 })
     } catch (e) {
         console.error('Create borrower error', e)
         return NextResponse.json({ error: 'Failed to add borrower' }, { status: 500 })

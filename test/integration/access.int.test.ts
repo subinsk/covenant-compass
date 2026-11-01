@@ -8,6 +8,9 @@ import * as covenantsRoute from '@/app/api/facilities/[facilityId]/covenants/rou
 import * as occurrencesRoute from '@/app/api/facilities/[facilityId]/occurrences/route'
 import * as organizationsRoute from '@/app/api/organizations/route'
 import * as borrowersRoute from '@/app/api/borrowers/route'
+import * as borrowerInviteRoute from '@/app/api/borrowers/[id]/invite/route'
+import * as acceptInviteRoute from '@/app/api/invite/route'
+import * as loginRoute from '@/app/api/auth/login/route'
 import * as uploadRunRoute from '@/app/api/facilities/[facilityId]/extraction-runs/route'
 import * as runStatusRoute from '@/app/api/extraction-runs/[id]/route'
 import { runExtraction } from '@/lib/extraction/import'
@@ -218,6 +221,88 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
             signInAs(f.sessions.acme)
             expect((await post({ name: 'Hooli' })).status).toBe(403)
             expect(await prisma.organization.count({ where: { name: 'Hooli' } })).toBe(0)
+        })
+    })
+
+    describe('borrower invites', () => {
+        const invite = (orgId: string, body: unknown = {}) => borrowerInviteRoute.POST(
+            request('/x', { method: 'POST', body: JSON.stringify(body) }),
+            { params: Promise.resolve({ id: orgId }) },
+        )
+        const accept = (body: unknown) => acceptInviteRoute.POST(request('/api/invite', { method: 'POST', body: JSON.stringify(body) }))
+        const login = (email: string, password: string) => loginRoute.POST(request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }))
+        const tokenOf = (path: string) => path.split('/').pop()!
+
+        it('invites the contact when a borrower is added with an email, storing only a hash', async () => {
+            signInAs(f.sessions.bankA)
+            const res = await borrowersRoute.POST(request('/api/borrowers', {
+                method: 'POST', body: JSON.stringify({ name: 'Hooli', contactName: 'Gavin', contactEmail: 'Gavin@Hooli.test' }),
+            }))
+            expect(res.status).toBe(201)
+            const body = await res.json()
+            expect(body.invite).toMatchObject({ email: 'gavin@hooli.test', path: expect.stringMatching(/^\/invite\/.+/) })
+            const user = await prisma.user.findUniqueOrThrow({ where: { email: 'gavin@hooli.test' } })
+            expect(user).toMatchObject({ organizationId: body.id, role: 'BORROWER_USER', passwordHash: null, name: 'Gavin' })
+            expect(user.inviteTokenHash).not.toBe(tokenOf(body.invite.path))
+            expect(await prisma.auditLog.count({ where: { entityId: body.id, action: 'INVITE' } })).toBe(1)
+        })
+
+        it('adds the borrower but no user when the email is taken', async () => {
+            signInAs(f.sessions.bankA)
+            const res = await borrowersRoute.POST(request('/api/borrowers', {
+                method: 'POST', body: JSON.stringify({ name: 'Acme Two', contactEmail: 'cfo@acme.test' }),
+            }))
+            expect(res.status).toBe(201)
+            const body = await res.json()
+            expect(body.invite).toBeNull()
+            expect(body.inviteError).toMatch(/already exists/)
+            expect(await prisma.user.count({ where: { organizationId: body.id } })).toBe(0)
+        })
+
+        it("only lets the borrower's lender invite", async () => {
+            const hooli = await prisma.organization.findFirstOrThrow({ where: { name: 'Hooli' } })
+            signInAs(f.sessions.bankB)
+            expect((await invite(hooli.id)).status).toBe(404)
+            signInAs(f.sessions.acme)
+            expect((await invite(f.orgs.acme.id)).status).toBe(403)
+            // Bank A lends to Acme (not created by it) but Acme already has an active user.
+            signInAs(f.sessions.bankA)
+            expect((await invite(f.orgs.acme.id)).status).toBe(409)
+        })
+
+        it('renews a pending invite so only the newest link works', async () => {
+            const hooli = await prisma.organization.findFirstOrThrow({ where: { name: 'Hooli' } })
+            signInAs(f.sessions.bankA)
+            const first = await (await invite(hooli.id)).json()
+            const second = await (await invite(hooli.id)).json()
+            expect(await prisma.user.count({ where: { organizationId: hooli.id } })).toBe(1)
+
+            expect((await accept({ token: tokenOf(first.path), name: 'Gavin B', password: 'password123' })).status).toBe(410)
+            expect((await login('gavin@hooli.test', 'password123')).status).toBe(401)
+
+            const res = await accept({ token: tokenOf(second.path), name: 'Gavin B', password: 'password123' })
+            expect(res.status).toBe(200)
+            expect(await res.json()).toEqual({ redirectTo: '/portal' })
+            expect(res.headers.get('set-cookie')).toContain('token=')
+            const user = await prisma.user.findUniqueOrThrow({ where: { email: 'gavin@hooli.test' } })
+            expect(user).toMatchObject({ name: 'Gavin B', inviteTokenHash: null, inviteExpiresAt: null })
+            expect(await prisma.auditLog.count({ where: { entityId: hooli.id, action: 'ACCEPT_INVITE', performedByUserId: user.id } })).toBe(1)
+
+            // The link is used up; the password now works.
+            expect((await accept({ token: tokenOf(second.path), name: 'X', password: 'password456' })).status).toBe(410)
+            expect((await login('gavin@hooli.test', 'password123')).status).toBe(200)
+        })
+
+        it('rejects an expired invite and a short password', async () => {
+            const initech = await prisma.organization.findFirstOrThrow({ where: { name: 'Initech' } })
+            signInAs(f.sessions.bankA)
+            const { path } = await (await invite(initech.id)).json()
+            expect((await accept({ token: tokenOf(path), name: 'Bill', password: 'short' })).status).toBe(400)
+
+            await prisma.user.updateMany({ where: { organizationId: initech.id }, data: { inviteExpiresAt: new Date(Date.now() - 1000) } })
+            const res = await accept({ token: tokenOf(path), name: 'Bill', password: 'password123' })
+            expect(res.status).toBe(410)
+            expect((await res.json()).error).toMatch(/expired/)
         })
     })
 
