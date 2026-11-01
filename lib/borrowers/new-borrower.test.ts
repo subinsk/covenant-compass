@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_BORROWER_FORM, borrowerFormErrors, buildBorrowerRequestBody } from './new-borrower'
+import {
+    EMPTY_BORROWER_FORM, borrowerFormErrors, borrowerFormFrom, buildBorrowerRequestBody, buildBorrowerUpdateBody,
+} from './new-borrower'
+
+describe('borrowerFormFrom', () => {
+    it('fills every field, with blanks for missing values', () => {
+        expect(borrowerFormFrom({ name: 'Initech', contactEmail: null, country: 'US' }))
+            .toEqual({ ...EMPTY_BORROWER_FORM, name: 'Initech', country: 'US' })
+    })
+})
+
+describe('buildBorrowerUpdateBody', () => {
+    it('trims every field and keeps blanks so they clear the stored value', () => {
+        const body = buildBorrowerUpdateBody({ ...EMPTY_BORROWER_FORM, name: ' Initech ', notes: '  ' })
+        expect(body).toEqual({ ...EMPTY_BORROWER_FORM, name: 'Initech' })
+        expect(borrowerFormErrors(body)).toEqual({})
+    })
+})
 
 describe('buildBorrowerRequestBody', () => {
     it('trims values and leaves blanks out', () => {

@@ -12,6 +12,8 @@ import { Combobox } from '@/components/ui/Combobox'
 import { Pager } from '@/components/ui/Pager'
 import { AddCovenantModal } from './AddCovenantModal'
 import { AgreementExtractionCard } from './AgreementExtractionCard'
+import { EditFacilityButton } from './NewFacilityModal'
+import { facilityFormFrom } from '@/lib/facilities/new-facility'
 import { OccurrenceDetails } from './OccurrenceDetails'
 import type { Prisma } from '@prisma/client'
 import { formatPeriod } from '@/lib/format/period'
@@ -141,10 +143,15 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                         </div>
                     </div>
                     {canManage && (
-                        <Button onClick={() => setIsAddModalOpen(true)} className="shadow-sm transition-all hover:shadow-md active:scale-[0.98]">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Covenant
-                        </Button>
+                        <div className="flex gap-2">
+                            <EditFacilityButton
+                                facility={{ id: facility.id, borrowerName: facility.borrower.name, form: facilityFormFrom(facility) }}
+                            />
+                            <Button onClick={() => setIsAddModalOpen(true)} className="shadow-sm transition-all hover:shadow-md active:scale-[0.98]">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Covenant
+                            </Button>
+                        </div>
                     )}
                 </div>
             </div>

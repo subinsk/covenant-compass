@@ -23,3 +23,27 @@ export const createBorrowerSchema = z.object({
 })
 
 export type CreateBorrowerInput = z.infer<typeof createBorrowerSchema>
+
+// Partial update: a blank optional field clears it (stored as null).
+const clearableText = (max: number) => z.string().trim().max(max)
+    .transform(v => (v === '' ? null : v))
+    .optional()
+
+export const updateBorrowerSchema = z.strictObject({
+    name: z.string().trim().min(1, 'Required').max(200).optional(),
+    legalName: clearableText(200),
+    registrationNumber: clearableText(100),
+    country: clearableText(100),
+    industry: clearableText(100),
+    website: clearableText(200),
+    contactName: clearableText(200),
+    contactEmail: z.string().trim().max(200)
+        .transform(v => (v === '' ? null : v))
+        .pipe(z.email('Enter a valid email').nullable())
+        .optional(),
+    contactPhone: clearableText(50),
+    address: clearableText(500),
+    notes: clearableText(2000),
+})
+
+export type UpdateBorrowerInput = z.infer<typeof updateBorrowerSchema>

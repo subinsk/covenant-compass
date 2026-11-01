@@ -8,7 +8,8 @@ import { getSession } from '@/lib/auth/session'
 import { borrowerScope, facilityScope, isLender } from '@/lib/auth/access'
 import { Card, CardContent } from '@/components/ui/core'
 import { FacilitySearch } from '@/components/features/FacilitySearch'
-import { NewBorrowerButton } from '@/components/features/NewBorrowerModal'
+import { EditBorrowerButton, NewBorrowerButton } from '@/components/features/NewBorrowerModal'
+import { borrowerFormFrom } from '@/lib/borrowers/new-borrower'
 import { BorrowerPortalAccess } from '@/components/features/BorrowerInvite'
 import { portalAccess } from '@/lib/borrowers/invite'
 
@@ -136,7 +137,10 @@ export default async function BorrowersPage({ searchParams }: { searchParams: Pr
                                                 {formatDistanceToNow(b.createdAt, { addSuffix: true })}
                                             </td>
                                             <td className="px-2 py-3">
-                                                <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                                                <div className="flex items-center gap-1">
+                                                    <EditBorrowerButton borrower={{ id: b.id, form: borrowerFormFrom(b) }} />
+                                                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                                                </div>
                                             </td>
                                         </tr>
                                     )

@@ -17,6 +17,16 @@ export function buildBorrowerRequestBody(form: BorrowerForm): Partial<BorrowerFo
     return body
 }
 
+// Pre-fills the edit form from a stored borrower; missing values become blank.
+export function borrowerFormFrom(borrower: Partial<Record<keyof BorrowerForm, string | null>>): BorrowerForm {
+    return Object.fromEntries(BORROWER_FIELDS.map(f => [f, borrower[f] ?? ''])) as BorrowerForm
+}
+
+// Every field, trimmed, for PATCH /api/borrowers/[id]: a blank one clears the stored value.
+export function buildBorrowerUpdateBody(form: BorrowerForm): BorrowerForm {
+    return Object.fromEntries(BORROWER_FIELDS.map(f => [f, form[f].trim()])) as BorrowerForm
+}
+
 // Mirrors createBorrowerSchema so the form can flag problems before posting.
 export function borrowerFormErrors(body: Partial<BorrowerForm>): Partial<Record<keyof BorrowerForm, string>> {
     const errors: Partial<Record<keyof BorrowerForm, string>> = {}

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildFacilityRequestBody, EMPTY_FACILITY_FORM, facilityFormErrors } from './new-facility'
+import {
+    buildFacilityRequestBody, buildFacilityUpdateBody, EMPTY_FACILITY_FORM, facilityFormErrors, facilityFormFrom, facilityUpdateErrors,
+} from './new-facility'
 
 const filled = {
     ...EMPTY_FACILITY_FORM,
@@ -60,5 +62,62 @@ describe('facilityFormErrors', () => {
             .toBe('End date must be after start date')
         expect(facilityFormErrors(buildFacilityRequestBody({ ...filled, endDate: '2025-12-31' })).endDate)
             .toBe('End date must be after start date')
+    })
+})
+
+const stored = {
+    name: 'Term Loan B',
+    borrowerOrgId: 'org-1',
+    facilityReference: 'TLB-01',
+    currency: 'EUR',
+    totalCommitment: '1250000.5',
+    startDate: new Date('2026-01-01T00:00:00.000Z'),
+    endDate: '2031-01-01T00:00:00.000Z',
+    description: null,
+    status: 'ACTIVE' as const,
+}
+
+describe('facilityFormFrom', () => {
+    it('pre-fills the edit form with date-input values and blanks for nulls', () => {
+        expect(facilityFormFrom(stored)).toEqual({
+            ...stored,
+            startDate: '2026-01-01',
+            endDate: '2031-01-01',
+            description: '',
+        })
+    })
+})
+
+describe('buildFacilityUpdateBody', () => {
+    it('leaves the borrower out and sends the status and a blank description to clear it', () => {
+        const body = buildFacilityUpdateBody({ ...facilityFormFrom(stored), status: 'MATURED', currency: ' usd ' })
+        expect(body).toEqual({
+            name: 'Term Loan B',
+            facilityReference: 'TLB-01',
+            currency: 'USD',
+            totalCommitment: 1250000.5,
+            startDate: '2026-01-01',
+            endDate: '2031-01-01',
+            description: '',
+            status: 'MATURED',
+        })
+        expect(body).not.toHaveProperty('borrowerOrgId')
+    })
+})
+
+describe('facilityUpdateErrors', () => {
+    it('accepts an unchanged facility', () => {
+        expect(facilityUpdateErrors(buildFacilityUpdateBody(facilityFormFrom(stored)))).toEqual({})
+    })
+
+    it('requires the reference and keeps the New Facility checks', () => {
+        const errors = facilityUpdateErrors(buildFacilityUpdateBody({
+            ...facilityFormFrom(stored), facilityReference: ' ', endDate: '2025-06-01', totalCommitment: '',
+        }))
+        expect(errors).toEqual({
+            facilityReference: 'Required',
+            endDate: 'End date must be after start date',
+            totalCommitment: 'Enter an amount',
+        })
     })
 })

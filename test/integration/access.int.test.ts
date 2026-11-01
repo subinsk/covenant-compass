@@ -9,6 +9,8 @@ import * as occurrencesRoute from '@/app/api/facilities/[facilityId]/occurrences
 import * as organizationsRoute from '@/app/api/organizations/route'
 import * as borrowersRoute from '@/app/api/borrowers/route'
 import * as borrowerInviteRoute from '@/app/api/borrowers/[id]/invite/route'
+import * as borrowerRoute from '@/app/api/borrowers/[id]/route'
+import * as facilityRoute from '@/app/api/facilities/[facilityId]/route'
 import * as acceptInviteRoute from '@/app/api/invite/route'
 import * as loginRoute from '@/app/api/auth/login/route'
 import * as uploadRunRoute from '@/app/api/facilities/[facilityId]/extraction-runs/route'
@@ -442,6 +444,106 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
 
             const runs = await prisma.extractionRun.findMany({ where: agreementRunsWhere(f.facilityB.id, now), select: { sourceName: true } })
             expect(runs.map(r => r.sourceName).sort()).toEqual(['empty-recent', 'failed-recent', 'pending', 'running'])
+        })
+    })
+
+    describe('PATCH /api/facilities/[facilityId]', () => {
+        const patch = (facilityId: string, body: unknown) => facilityRoute.PATCH(
+            request('/x', { method: 'PATCH', body: JSON.stringify(body) }),
+            facilityParams(facilityId),
+        )
+
+        it('lets the lender edit details and status, auditing the changed fields', async () => {
+            signInAs(f.sessions.bankA)
+            const res = await patch(f.facilityA.id, { name: 'Facility A2', status: 'MATURED', totalCommitment: '2500000', description: 'Renamed' })
+            expect(res.status).toBe(200)
+            expect(await res.json()).toMatchObject({
+                name: 'Facility A2', status: 'MATURED', totalCommitment: '2500000', borrowerOrgId: f.orgs.acme.id,
+                updatedByUserId: f.sessions.bankA.userId,
+            })
+            const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: f.facilityA.id, action: 'UPDATE' } })
+            expect(audit).toMatchObject({ entityType: 'FACILITY', performedByUserId: f.sessions.bankA.userId })
+            expect(audit.details).toEqual({
+                changes: {
+                    name: { before: 'Facility A', after: 'Facility A2' },
+                    status: { before: 'ACTIVE', after: 'MATURED' },
+                    totalCommitment: { before: '1000000', after: '2500000' },
+                    description: { before: null, after: 'Renamed' },
+                },
+            })
+        })
+
+        it('checks a single new date against the stored one', async () => {
+            signInAs(f.sessions.bankA)
+            expect((await patch(f.facilityA.id, { endDate: '2025-06-01' })).status).toBe(400)
+        })
+
+        it('refuses to change the borrower', async () => {
+            signInAs(f.sessions.bankA)
+            expect((await patch(f.facilityA.id, { borrowerOrgId: f.orgs.globex.id })).status).toBe(400)
+        })
+
+        it('forbids a borrower user, even on its own facility', async () => {
+            signInAs(f.sessions.acme)
+            expect((await patch(f.facilityA.id, { status: 'DEFAULTED' })).status).toBe(403)
+        })
+
+        it("hides another lender's facility", async () => {
+            signInAs(f.sessions.bankB)
+            expect((await patch(f.facilityA.id, { status: 'DEFAULTED' })).status).toBe(404)
+        })
+
+        it('changes nothing when refused', async () => {
+            const facility = await prisma.facility.findUniqueOrThrow({ where: { id: f.facilityA.id } })
+            expect(facility).toMatchObject({ status: 'MATURED', borrowerOrgId: f.orgs.acme.id })
+            expect(facility.endDate).toEqual(new Date('2028-01-01'))
+            expect(await prisma.auditLog.count({ where: { entityId: f.facilityA.id, action: 'UPDATE' } })).toBe(1)
+        })
+    })
+
+    describe('PATCH /api/borrowers/[id]', () => {
+        const patch = (id: string, body: unknown) => borrowerRoute.PATCH(
+            request('/x', { method: 'PATCH', body: JSON.stringify(body) }),
+            { params: Promise.resolve({ id }) },
+        )
+
+        it('lets the lender edit its borrower, auditing the changed fields', async () => {
+            signInAs(f.sessions.bankA)
+            const res = await patch(f.orgs.acme.id, { industry: ' Retail ', contactPhone: '555-0100', notes: '' })
+            expect(res.status).toBe(200)
+            expect(await res.json()).toMatchObject({ industry: 'Retail', contactPhone: '555-0100', notes: null })
+            const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: f.orgs.acme.id, action: 'UPDATE' } })
+            expect(audit.entityType).toBe('ORGANIZATION')
+            expect(audit.details).toEqual({
+                changes: {
+                    industry: { before: null, after: 'Retail' },
+                    contactPhone: { before: null, after: '555-0100' },
+                },
+            })
+        })
+
+        it("leaves an existing portal user's login email alone", async () => {
+            signInAs(f.sessions.bankA)
+            expect((await patch(f.orgs.acme.id, { contactEmail: 'treasurer@acme.test' })).status).toBe(200)
+            const users = await prisma.user.findMany({ where: { organizationId: f.orgs.acme.id }, select: { email: true } })
+            expect(users.map(u => u.email)).toContain('cfo@acme.test')
+            expect(users.map(u => u.email)).not.toContain('treasurer@acme.test')
+        })
+
+        it('rejects a name another of its borrowers has', async () => {
+            signInAs(f.sessions.bankA)
+            expect((await patch(f.orgs.acme.id, { name: 'initech' })).status).toBe(409)
+        })
+
+        it("hides another lender's borrower", async () => {
+            signInAs(f.sessions.bankB)
+            expect((await patch(f.orgs.acme.id, { name: 'Taken' })).status).toBe(404)
+        })
+
+        it('forbids borrower users, even for their own org', async () => {
+            signInAs(f.sessions.acme)
+            expect((await patch(f.orgs.acme.id, { name: 'Taken' })).status).toBe(403)
+            expect((await prisma.organization.findUniqueOrThrow({ where: { id: f.orgs.acme.id } })).name).toBe('Acme')
         })
     })
 })

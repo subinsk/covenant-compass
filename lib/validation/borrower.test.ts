@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createBorrowerSchema } from './borrower'
+import { createBorrowerSchema, updateBorrowerSchema } from './borrower'
 
 describe('createBorrowerSchema', () => {
     it('needs a name', () => {
@@ -19,5 +19,23 @@ describe('createBorrowerSchema', () => {
 
     it('rejects over-long values', () => {
         expect(createBorrowerSchema.safeParse({ name: 'x'.repeat(201) }).success).toBe(false)
+    })
+})
+
+describe('updateBorrowerSchema', () => {
+    it('accepts a partial update and clears blank optional fields', () => {
+        expect(updateBorrowerSchema.parse({ industry: ' Retail ', notes: '', contactEmail: '' }))
+            .toEqual({ industry: 'Retail', notes: null, contactEmail: null })
+    })
+
+    it('keeps the name required when given, and checks the email', () => {
+        expect(updateBorrowerSchema.safeParse({ name: '  ' }).success).toBe(false)
+        expect(updateBorrowerSchema.safeParse({ contactEmail: 'nope' }).success).toBe(false)
+        expect(updateBorrowerSchema.parse({ contactEmail: ' cfo@acme.com ' })).toEqual({ contactEmail: 'cfo@acme.com' })
+    })
+
+    it('rejects unknown fields', () => {
+        expect(updateBorrowerSchema.safeParse({ type: 'LENDER' }).success).toBe(false)
+        expect(updateBorrowerSchema.safeParse({ createdByOrgId: 'org-2' }).success).toBe(false)
     })
 })
