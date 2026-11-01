@@ -134,7 +134,8 @@ describe('plainTextToPages', () => {
     })
 })
 
-describe('readAgreementFile', () => {
+// The first test in this block loads the PDF and Word parsers, which can take a few seconds on a busy machine.
+describe('readAgreementFile', { timeout: 20_000 }, () => {
     it('reads a PDF into paragraphs the section finder understands', async () => {
         const bytes = new Uint8Array(readFileSync(path.join(__dirname, '../../test/fixtures/agreement-sample.pdf')))
         const { text, pageStarts } = await readAgreementFile(bytes, 'Credit Agreement.PDF')
