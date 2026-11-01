@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateWithTrace, type Defs, type Formula } from '@/lib/formulas/formula'
-import { applicableLimit, maxDenominatorDrop, parseFromDate, testCovenant } from './test'
+import { applicableLimit, evaluateThreshold, maxDenominatorDrop, parseFromDate, parseThreshold, testCovenant } from './test'
 
 describe('testCovenant', () => {
     it('handles each operator, including the boundary', () => {
@@ -109,5 +109,44 @@ describe('worked example: Total Consolidated Leverage Ratio', () => {
         const { value, missing } = evaluateWithTrace(v('Total Consolidated Leverage Ratio'), { 'Consolidated Total Debt': 1250 }, defs)
         expect(value).toBeNull()
         expect(missing).toEqual(['Consolidated Net Income', 'Interest Expense', 'Income Taxes', 'Depreciation and Amortization'])
+    })
+})
+
+describe('parseThreshold', () => {
+    it('reads the operator and limit from stored conditions', () => {
+        expect(parseThreshold('<= 4.0')).toEqual({ operator: '<=', limit: 4 })
+        expect(parseThreshold(' >=1.25x')).toEqual({ operator: '>=', limit: 1.25 })
+        expect(parseThreshold('< 3.5 to 1.00')).toEqual({ operator: '<', limit: 3.5 })
+        expect(parseThreshold('> 2')).toEqual({ operator: '>', limit: 2 })
+    })
+
+    it('returns null for missing or unreadable conditions', () => {
+        expect(parseThreshold(null)).toBeNull()
+        expect(parseThreshold(undefined)).toBeNull()
+        expect(parseThreshold('')).toBeNull()
+        expect(parseThreshold('Leverage below 4x')).toBeNull()
+        expect(parseThreshold('<= abc')).toBeNull()
+        expect(parseThreshold('<= 0')).toBeNull()
+        expect(parseThreshold('= 4.0')).toBeNull()
+    })
+})
+
+describe('evaluateThreshold', () => {
+    it('passes a maximum covenant at or under the limit, with signed headroom', () => {
+        expect(evaluateThreshold('<= 4.0', 3)).toEqual({ passed: true, headroom: 25 })
+        expect(evaluateThreshold('<= 4.0', 4)).toEqual({ passed: true, headroom: 0 })
+        expect(evaluateThreshold('<= 4.0', 5)).toEqual({ passed: false, headroom: -25 })
+        expect(evaluateThreshold('< 4.0', 4)).toEqual({ passed: false, headroom: 0 })
+    })
+
+    it('passes a minimum covenant at or over the limit', () => {
+        expect(evaluateThreshold('>= 1.25', 1.5)).toEqual({ passed: true, headroom: 20 })
+        expect(evaluateThreshold('>= 2', 1.5)).toEqual({ passed: false, headroom: -25 })
+    })
+
+    it('returns null when the condition or value cannot be evaluated', () => {
+        expect(evaluateThreshold(null, 3)).toBeNull()
+        expect(evaluateThreshold('no limit given', 3)).toBeNull()
+        expect(evaluateThreshold('<= 4.0', Number.NaN)).toBeNull()
     })
 })

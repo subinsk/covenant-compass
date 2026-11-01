@@ -20,6 +20,7 @@ import * as occurrenceRoute from '@/app/api/occurrences/[id]/route'
 import * as notificationsRoute from '@/app/api/notifications/route'
 import * as notificationRoute from '@/app/api/notifications/[id]/route'
 import * as readAllRoute from '@/app/api/notifications/read-all/route'
+import * as testedValueRoute from '@/app/api/occurrences/[id]/tested-value/route'
 import { runExtraction } from '@/lib/extraction/import'
 import { updateComplianceStatuses } from '@/lib/services/rag-engine'
 import { agreementRunsWhere } from '@/lib/extraction/runs'
@@ -645,6 +646,61 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
             const rows = await prisma.notification.findMany({ where: { covenantOccurrenceId: f.facilityB.occurrence.id, type: 'OVERDUE' } })
             expect(rows.map(r => r.userId).sort()).toEqual([f.sessions.bankB.userId, f.sessions.globex.userId].sort())
             expect((await prisma.covenantOccurrence.findUniqueOrThrow({ where: { id: f.facilityB.occurrence.id } })).status).toBe('OVERDUE')
+        })
+    })
+
+    describe('PUT /api/occurrences/[id]/tested-value', () => {
+        const put = (id: string, body: unknown) => testedValueRoute.PUT(
+            request('/x', { method: 'PUT', body: JSON.stringify(body) }),
+            { params: Promise.resolve({ id }) },
+        )
+        const occurrenceA = () => prisma.covenantOccurrence.findUniqueOrThrow({ where: { id: f.facilityA.occurrence.id } })
+
+        it('records a breach for the lender, turning the obligation RED and auditing it', async () => {
+            signInAs(f.sessions.bankA)
+            const res = await put(f.facilityA.occurrence.id, { value: 5 })
+            expect(res.status).toBe(200)
+            expect(await res.json()).toMatchObject({ testedValue: 5, testPassed: false, ragStatus: 'RED', headroom: -25 })
+            const stored = await occurrenceA()
+            expect(stored).toMatchObject({ testPassed: false, ragStatus: 'RED', testedByUserId: f.sessions.bankA.userId })
+            expect(stored.testedValue?.toNumber()).toBe(5)
+            expect(stored.testedAt).toBeInstanceOf(Date)
+            const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: f.facilityA.occurrence.id, action: 'UPDATE' } })
+            expect(audit.details).toMatchObject({ action: 'recordTest', testedValue: 5, testPassed: false, previousRagStatus: 'GREEN' })
+        })
+
+        it('lets the borrower submit a corrected value, which clears the RED from the failed test', async () => {
+            // Completed, so the pass isn't RED for being past due either.
+            await prisma.covenantOccurrence.update({ where: { id: f.facilityA.occurrence.id }, data: { status: 'COMPLETED' } })
+            signInAs(f.sessions.acme)
+            const res = await put(f.facilityA.occurrence.id, { value: 3.2 })
+            expect(res.status).toBe(200)
+            const stored = await occurrenceA()
+            expect(stored).toMatchObject({ testPassed: true, testedByUserId: f.sessions.acme.userId })
+            expect(stored.testedValue?.toNumber()).toBe(3.2)
+            expect(stored.ragStatus).toBe('GREEN')
+        })
+
+        it('rejects a non-financial covenant and a bad value', async () => {
+            const covenant = await prisma.covenant.create({
+                data: { facilityId: f.facilityA.id, title: 'Annual accounts', type: 'REPORTING', frequency: 'ANNUAL', ownerRole: 'BORROWER', importance: 'MEDIUM' },
+            })
+            const occurrence = await prisma.covenantOccurrence.create({
+                data: { covenantId: covenant.id, facilityId: f.facilityA.id, dueDate: new Date('2026-12-31') },
+            })
+            signInAs(f.sessions.bankA)
+            expect((await put(occurrence.id, { value: 2 })).status).toBe(400)
+            expect((await put(f.facilityA.occurrence.id, { value: 'high' })).status).toBe(400)
+            const stored = await prisma.covenantOccurrence.findUniqueOrThrow({ where: { id: occurrence.id } })
+            expect(stored.testedValue).toBeNull()
+        })
+
+        it("hides the obligation from another org's lender and borrower", async () => {
+            for (const session of [f.sessions.bankB, f.sessions.globex]) {
+                signInAs(session)
+                expect((await put(f.facilityA.occurrence.id, { value: 9 })).status).toBe(404)
+            }
+            expect((await occurrenceA()).testedValue?.toNumber()).toBe(3.2)
         })
     })
 })

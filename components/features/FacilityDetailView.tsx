@@ -15,6 +15,8 @@ import { AgreementExtractionCard } from './AgreementExtractionCard'
 import { EditFacilityButton } from './NewFacilityModal'
 import { facilityFormFrom } from '@/lib/facilities/new-facility'
 import { OccurrenceDetails } from './OccurrenceDetails'
+import { TestBadge } from './TestedValue'
+import { FinancialTestsCard } from './FinancialTestsCard'
 import type { Prisma } from '@prisma/client'
 import { formatPeriod } from '@/lib/format/period'
 import type { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
@@ -34,9 +36,14 @@ type FacilityWithDetails = Prisma.FacilityGetPayload<{
     }
 }>
 
+type FacilityOccurrence = FacilityWithDetails['occurrences'][number]
+
 // Prisma's Decimal can't cross from a server component to a client one, so the
-// page passes totalCommitment as a string.
-export type FacilityView = Omit<FacilityWithDetails, 'totalCommitment'> & { totalCommitment: string }
+// page passes totalCommitment as a string and testedValue as a number.
+export type FacilityView = Omit<FacilityWithDetails, 'totalCommitment' | 'occurrences'> & {
+    totalCommitment: string
+    occurrences: (Omit<FacilityOccurrence, 'testedValue'> & { testedValue: number | null })[]
+}
 
 const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -262,6 +269,12 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                         </Card>
 
                         <div className="space-y-6">
+                            <FinancialTestsCard
+                                covenants={facility.covenants}
+                                occurrences={facility.occurrences}
+                                onShowSchedule={covenantId => openSchedule({ covenantId })}
+                            />
+
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 text-base">
@@ -490,6 +503,12 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                                                             <Badge variant={STATUS_BADGE[occ.status]}>{STATUS_LABEL[occ.status]}</Badge>
                                                             {isEvidenceReceived(occ) && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Evidence received</Badge>}
                                                         </div>
+                                                        {occ.testedValue !== null && (
+                                                            <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                                                                {occ.testedValue}
+                                                                <TestBadge passed={occ.testPassed} />
+                                                            </p>
+                                                        )}
                                                     </td>
                                                     <td className="hidden px-4 py-3 text-center tabular-nums text-muted-foreground md:table-cell">
                                                         {occ.documents.length || '—'}
