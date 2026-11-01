@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
@@ -6,12 +6,16 @@ import { recordAudit } from '@/lib/audit/record'
 import { loadAgreementText } from '@/lib/agreements/text'
 import { extractCovenants } from '@/lib/extraction/extract'
 import { extractionConfigError, importAgreementSchema, runExtraction } from '@/lib/extraction/import'
-import { completeRun, failRun, setRunStage } from '@/lib/extraction/store'
+import { completeRun, failRun, findActiveRun, RUN_IN_PROGRESS_ERROR, setRunStage } from '@/lib/extraction/store'
 import { invalidInput } from '@/lib/validation/http'
+
+// Seconds the platform keeps the function alive, including the extraction run after the response.
+export const maxDuration = 300
 
 // POST /api/extraction-runs  { facilityId, url }
 // Starts extracting covenants from an EDGAR agreement. Returns the RUNNING run (202);
-// the covenants appear in the review queue once the run is DONE.
+// the covenants appear in the review queue once the run is DONE. 409 if the facility already
+// has a run in progress.
 export async function POST(request: Request) {
     const session = await getSession()
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -27,6 +31,9 @@ export async function POST(request: Request) {
     })
     if (!facility || !canAccessFacility(session, facility)) {
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
+    }
+    if (await findActiveRun(prisma, facilityId, new Date())) {
+        return NextResponse.json({ error: RUN_IN_PROGRESS_ERROR }, { status: 409 })
     }
 
     const configError = extractionConfigError(process.env, 'edgar')
@@ -51,16 +58,15 @@ export async function POST(request: Request) {
         details: { kind: 'extraction', url },
     })
 
-    // Runs in this server process after the response is sent (not awaited). That works for a
-    // single long-lived server; a hosted deployment needs a job queue for this, since the
-    // process may stop once the response is sent and a restart leaves the run RUNNING.
-    void runExtraction(run.id, url, {
+    // Runs after the response is sent. after() keeps the function alive until it finishes
+    // (up to maxDuration); a run cut off by a timeout or restart is failed later as stale.
+    after(() => runExtraction(run.id, url, {
         load: loadAgreementText,
         extract: (text) => extractCovenants(text),
         complete: (runId, result) => completeRun(prisma, runId, result),
         fail: (runId, error) => failRun(prisma, runId, error),
         onStage: (runId, stage) => setRunStage(prisma, runId, stage),
-    })
+    }))
 
     return NextResponse.json(run, { status: 202 })
 }

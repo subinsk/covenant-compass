@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
@@ -7,14 +7,18 @@ import { ACCEPTED_EXTENSIONS, MAX_UPLOAD_BYTES, readAgreementFile } from '@/lib/
 import { agreementFileError, formatBytes } from '@/lib/agreements/upload-check'
 import { extractCovenants } from '@/lib/extraction/extract'
 import { extractionConfigError, runExtraction } from '@/lib/extraction/import'
-import { completeRun, failRun, setRunStage } from '@/lib/extraction/store'
+import { completeRun, failRun, findActiveRun, RUN_IN_PROGRESS_ERROR, setRunStage } from '@/lib/extraction/store'
+
+// Seconds the platform keeps the function alive, including the extraction run after the response.
+export const maxDuration = 300
 
 // Room for the multipart boundaries and headers around the file.
 const FORM_OVERHEAD_BYTES = 64 * 1024
 
 // POST /api/facilities/[facilityId]/extraction-runs  multipart form: file
 // Starts extracting covenants from an uploaded agreement. Returns the RUNNING run (202);
-// the file is read and the covenants extracted after the response is sent.
+// the file is read and the covenants extracted after the response is sent. 409 if the facility
+// already has a run in progress.
 export async function POST(request: Request, { params }: { params: Promise<{ facilityId: string }> }) {
     const { facilityId } = await params
     const session = await getSession()
@@ -27,6 +31,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ fac
     })
     if (!facility || !canAccessFacility(session, facility)) {
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
+    }
+    if (await findActiveRun(prisma, facilityId, new Date())) {
+        return NextResponse.json({ error: RUN_IN_PROGRESS_ERROR }, { status: 409 })
     }
 
     // Refuse an oversized body before buffering it.
@@ -66,15 +73,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ fac
         details: { kind: 'extraction', fileName, size: file.size },
     })
 
-    // Not awaited: runs in this server process after the response is sent, like the EDGAR import
-    // (see app/api/extraction-runs/route.ts for the hosting caveat).
-    void runExtraction(run.id, fileName, {
+    // Runs after the response is sent, like the EDGAR import. after() keeps the function alive
+    // until it finishes (up to maxDuration); a run cut off by a timeout or restart is failed later as stale.
+    after(() => runExtraction(run.id, fileName, {
         load: () => readAgreementFile(bytes, fileName),
         extract: (text) => extractCovenants(text),
         complete: (runId, result) => completeRun(prisma, runId, result),
         fail: (runId, error) => failRun(prisma, runId, error),
         onStage: (runId, stage) => setRunStage(prisma, runId, stage),
-    })
+    }))
 
     return NextResponse.json(run, { status: 202 })
 }

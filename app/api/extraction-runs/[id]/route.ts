@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
+import { failRun, isStaleRun, STALE_RUN_ERROR } from '@/lib/extraction/store'
 
 // GET /api/extraction-runs/[id]  the run's progress, polled by the facility page.
+// A run left RUNNING past the stale cutoff is marked FAILED here.
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     const session = await getSession()
@@ -25,6 +27,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     })
     if (!run || !canAccessFacility(session, run.facility)) {
         return NextResponse.json({ error: 'Extraction run not found' }, { status: 404 })
+    }
+    if (isStaleRun(run, new Date())) {
+        await failRun(prisma, run.id, STALE_RUN_ERROR)
+        run.status = 'FAILED'
+        run.error = STALE_RUN_ERROR
     }
 
     return NextResponse.json({

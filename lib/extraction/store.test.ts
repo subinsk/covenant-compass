@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CitedCovenant } from './extract'
-import { completeRun, failRun, saveExtraction, setRunStage, type ExtractionStore, type RunUpdateStore } from './store'
+import {
+    completeRun, failRun, failStaleRuns, findActiveRun, isStaleRun, saveExtraction, setRunStage,
+    STALE_RUN_ERROR, STALE_RUN_MS, type ActiveRunStore, type ExtractionStore, type RunUpdateStore,
+} from './store'
 
 const leverage: CitedCovenant = {
     name: 'Maximum Leverage Ratio',
@@ -138,5 +141,57 @@ describe('failRun', () => {
         const { store, update } = fakeUpdateStore()
         await failRun(store, 'run-1', 'boom')
         expect(update).toHaveBeenCalledWith({ where: { id: 'run-1' }, data: { status: 'FAILED', error: 'boom' } })
+    })
+})
+
+describe('isStaleRun', () => {
+    const now = new Date('2026-01-01T12:00:00Z')
+    const ago = (ms: number) => new Date(now.getTime() - ms)
+
+    it('is stale only when still running past the cutoff', () => {
+        expect(isStaleRun({ status: 'RUNNING', createdAt: ago(STALE_RUN_MS + 1) }, now)).toBe(true)
+        expect(isStaleRun({ status: 'RUNNING', createdAt: ago(STALE_RUN_MS) }, now)).toBe(false)
+        expect(isStaleRun({ status: 'RUNNING', createdAt: ago(60_000) }, now)).toBe(false)
+        expect(isStaleRun({ status: 'DONE', createdAt: ago(STALE_RUN_MS * 10) }, now)).toBe(false)
+        expect(isStaleRun({ status: 'FAILED', createdAt: ago(STALE_RUN_MS * 10) }, now)).toBe(false)
+    })
+
+    it('waits longer than the routes may run (maxDuration 300s)', () => {
+        expect(STALE_RUN_MS).toBeGreaterThan(300_000)
+    })
+})
+
+describe('failStaleRuns', () => {
+    it('fails running runs started before the cutoff, within the given scope', async () => {
+        const updateMany = vi.fn(async () => ({ count: 1 }))
+        const now = new Date('2026-01-01T12:00:00Z')
+        await failStaleRuns({ extractionRun: { updateMany } } as unknown as ActiveRunStore, now, { facilityId: 'f1' })
+        expect(updateMany).toHaveBeenCalledWith({
+            where: { facilityId: 'f1', status: 'RUNNING', createdAt: { lt: new Date(now.getTime() - STALE_RUN_MS) } },
+            data: { status: 'FAILED', error: STALE_RUN_ERROR },
+        })
+    })
+})
+
+describe('findActiveRun', () => {
+    function fakeActiveStore(running: { id: string } | null) {
+        const calls: string[] = []
+        const updateMany = vi.fn(async () => { calls.push('updateMany'); return { count: 0 } })
+        const findFirst = vi.fn(async () => { calls.push('findFirst'); return running })
+        const store = { extractionRun: { updateMany, findFirst } } as unknown as ActiveRunStore
+        return { store, calls, updateMany, findFirst }
+    }
+
+    it("fails the facility's stale runs before looking for a running one", async () => {
+        const { store, calls, updateMany, findFirst } = fakeActiveStore(null)
+        expect(await findActiveRun(store, 'f1', new Date())).toBeNull()
+        expect(calls).toEqual(['updateMany', 'findFirst'])
+        expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ facilityId: 'f1', status: 'RUNNING' }) }))
+        expect(findFirst).toHaveBeenCalledWith({ where: { facilityId: 'f1', status: 'RUNNING' }, select: { id: true } })
+    })
+
+    it('returns the run still in progress', async () => {
+        const { store } = fakeActiveStore({ id: 'run-1' })
+        expect(await findActiveRun(store, 'f1', new Date())).toEqual({ id: 'run-1' })
     })
 })

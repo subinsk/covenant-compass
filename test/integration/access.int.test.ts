@@ -12,6 +12,7 @@ import * as uploadRunRoute from '@/app/api/facilities/[facilityId]/extraction-ru
 import * as runStatusRoute from '@/app/api/extraction-runs/[id]/route'
 import { runExtraction } from '@/lib/extraction/import'
 import { agreementRunsWhere } from '@/lib/extraction/runs'
+import { RUN_IN_PROGRESS_ERROR, STALE_RUN_ERROR, STALE_RUN_MS } from '@/lib/extraction/store'
 import { seedTwoTenants } from './fixtures'
 
 vi.mock('@/lib/auth/session', () => ({ getSession: vi.fn() }))
@@ -19,6 +20,11 @@ vi.mock('@/lib/auth/session', () => ({ getSession: vi.fn() }))
 vi.mock('@/lib/extraction/import', async (importOriginal) => ({
     ...await importOriginal<typeof import('@/lib/extraction/import')>(),
     runExtraction: vi.fn(async () => 'DONE'),
+}))
+// after() needs a Next request scope; here the routes are called directly, so run the task now.
+vi.mock('next/server', async (importOriginal) => ({
+    ...await importOriginal<typeof import('next/server')>(),
+    after: (task: () => unknown) => { void task() },
 }))
 
 type Fixtures = Awaited<ReturnType<typeof seedTwoTenants>>
@@ -273,6 +279,15 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
             expect(runExtraction).toHaveBeenCalledWith(run.id, 'Credit Agreement.txt', expect.objectContaining({ load: expect.any(Function) }))
             expect(await prisma.auditLog.count({ where: { entityId: f.facilityA.id, action: 'CREATE' } })).toBe(1)
         })
+
+        it('refuses a second run while one is in progress', async () => {
+            signInAs(f.sessions.bankA)
+            const res = await upload(f.facilityA.id, agreement())
+            expect(res.status).toBe(409)
+            expect(await res.json()).toEqual({ error: RUN_IN_PROGRESS_ERROR })
+            expect(await prisma.extractionRun.count({ where: { facilityId: f.facilityA.id } })).toBe(1)
+            expect(runExtraction).not.toHaveBeenCalled()
+        })
     })
 
     describe('GET /api/extraction-runs/[id]', () => {
@@ -296,6 +311,26 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
             expect(JSON.stringify(await res.json())).not.toContain('Credit Agreement')
             signInAs(f.sessions.acme)
             expect((await get(run.id)).status).toBe(403)
+        })
+
+        it('fails a run left running past the cutoff, which then no longer blocks a new upload', async () => {
+            vi.stubEnv('LLM_BASE_URL', 'http://llm.invalid')
+            vi.stubEnv('LLM_MODEL', 'test-model')
+            const run = await prisma.extractionRun.findFirstOrThrow({ where: { facilityId: f.facilityA.id } })
+            await prisma.extractionRun.update({
+                where: { id: run.id },
+                data: { createdAt: new Date(Date.now() - STALE_RUN_MS - 60_000) },
+            })
+            signInAs(f.sessions.bankA)
+            expect(await (await get(run.id)).json()).toMatchObject({ status: 'FAILED', error: STALE_RUN_ERROR })
+            expect(await prisma.extractionRun.findUniqueOrThrow({ where: { id: run.id } })).toMatchObject({ status: 'FAILED' })
+
+            const form = new FormData()
+            form.append('file', new File(['Leverage Ratio not to exceed 3.50:1.00.'], 'Amendment.txt'))
+            const res = await uploadRunRoute.POST(request('/x', { method: 'POST', body: form }), facilityParams(f.facilityA.id))
+            expect(res.status).toBe(202)
+            await prisma.extractionRun.delete({ where: { id: (await res.json()).id } })
+            vi.unstubAllEnvs()
         })
     })
 
