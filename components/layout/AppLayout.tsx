@@ -1,8 +1,9 @@
 'use client'
-import { LayoutDashboard, FileText, Calendar, Bell, LogOut, FileStack, ClipboardCheck, ChartLine, Building2 } from 'lucide-react'
+import { LayoutDashboard, FileText, Calendar, LogOut, FileStack, ClipboardCheck, ChartLine, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/components/ui/core'
+import { NotificationBell } from './NotificationBell'
 
 export default function AppLayout({ children, isBorrower }: { children: React.ReactNode; isBorrower: boolean }) {
     const pathname = usePathname()
@@ -79,10 +80,7 @@ export default function AppLayout({ children, isBorrower }: { children: React.Re
                 {/* Pages show their own title, so the header only holds actions */}
                 <header className="h-16 border-b bg-card flex items-center justify-end px-6 sticky top-0 z-10 w-full">
                     <div className="flex items-center gap-4">
-                        <button className="relative p-2 rounded-full hover:bg-accent text-muted-foreground">
-                            <Bell className="w-5 h-5" />
-                            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full border border-card" />
-                        </button>
+                        <NotificationBell />
                         <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-sm font-bold">
                             AL
                         </div>

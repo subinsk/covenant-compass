@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
 import { Card, CardContent, CardHeader, CardTitle, Badge, cn } from '@/components/ui/core'
-import { AlertCircle, ArrowRight, CheckCircle, ChevronRight, Clock, FileStack, History, ShieldCheck } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle, ChevronRight, Clock, FileCheck, FileStack, History, ShieldCheck } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { obligationWhere } from '@/lib/dashboard/filters'
 import { onTimeRate, rankNeedsAttention } from '@/lib/dashboard/metrics'
@@ -19,9 +19,10 @@ export default async function Dashboard() {
   const scope = facilityScope(session)
   const now = new Date()
 
-  const [upcomingOccurrences, overdueOccurrences, facilities, occurrences, documents] = await Promise.all([
+  const [upcomingOccurrences, overdueOccurrences, awaitingReview, facilities, occurrences, documents] = await Promise.all([
     prisma.covenantOccurrence.count({ where: obligationWhere('upcoming', scope, now) }),
     prisma.covenantOccurrence.count({ where: obligationWhere('overdue', scope, now) }),
+    prisma.covenantOccurrence.count({ where: obligationWhere('evidence', scope, now) }),
     prisma.facility.findMany({
       where: scope,
       select: { id: true, name: true, facilityReference: true, status: true },
@@ -78,13 +79,24 @@ export default async function Dashboard() {
           <p className="text-sm font-medium text-muted-foreground">{format(now, 'EEEE, d MMMM yyyy')}</p>
           <h1 className="text-2xl font-bold tracking-tight mt-1">Portfolio overview</h1>
         </div>
-        <Link
-          href="/calendar"
-          className="group inline-flex items-center gap-2 self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-[0.98] sm:self-auto"
-        >
-          Open calendar
-          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-        </Link>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {awaitingReview > 0 && (
+            <Link
+              href="/obligations?filter=evidence"
+              className="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm transition-colors hover:bg-blue-100"
+            >
+              <FileCheck className="w-4 h-4" />
+              {awaitingReview} awaiting review
+            </Link>
+          )}
+          <Link
+            href="/calendar"
+            className="group inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md active:scale-[0.98]"
+          >
+            Open calendar
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
       </div>
 
       {/* KPI Cards */}

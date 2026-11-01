@@ -4,12 +4,14 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility } from '@/lib/auth/access'
 import { recordAudit } from '@/lib/audit/record'
+import { notifyOccurrence } from '@/lib/notifications/notify'
 import { documentTypeSchema, storageKey, validateUpload } from '@/lib/documents/upload'
 import { saveFile } from '@/lib/storage/files'
 import { invalidInput } from '@/lib/validation/http'
 
 // POST /api/occurrences/[id]/documents  multipart form: file, documentType?
-// Attaches evidence to an obligation. It does not change the obligation's status.
+// Attaches evidence to an obligation and notifies the facility's lender users.
+// It does not change the obligation's status.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     const session = await getSession()
@@ -17,7 +19,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const occurrence = await prisma.covenantOccurrence.findUnique({
         where: { id },
-        select: { id: true, facilityId: true, facility: { select: { lenderOrgId: true, borrowerOrgId: true } } },
+        select: {
+            id: true, facilityId: true, dueDate: true,
+            covenant: { select: { title: true } },
+            facility: { select: { id: true, name: true, lenderOrgId: true, borrowerOrgId: true } },
+        },
     })
     if (!occurrence || !canAccessFacility(session, occurrence.facility)) {
         return NextResponse.json({ error: 'Obligation not found' }, { status: 404 })
@@ -57,6 +63,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             userId: session.userId,
             details: { occurrenceId: occurrence.id, fileName: file.name, size: file.size },
         })
+        const uploader = await tx.user.findUnique({ where: { id: session.userId }, select: { name: true } })
+        await notifyOccurrence(tx, 'EVIDENCE_RECEIVED', occurrence, { actorName: uploader?.name, fileName: file.name })
         return created
     })
 

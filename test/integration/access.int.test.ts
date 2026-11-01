@@ -15,7 +15,13 @@ import * as acceptInviteRoute from '@/app/api/invite/route'
 import * as loginRoute from '@/app/api/auth/login/route'
 import * as uploadRunRoute from '@/app/api/facilities/[facilityId]/extraction-runs/route'
 import * as runStatusRoute from '@/app/api/extraction-runs/[id]/route'
+import * as evidenceRoute from '@/app/api/occurrences/[id]/documents/route'
+import * as occurrenceRoute from '@/app/api/occurrences/[id]/route'
+import * as notificationsRoute from '@/app/api/notifications/route'
+import * as notificationRoute from '@/app/api/notifications/[id]/route'
+import * as readAllRoute from '@/app/api/notifications/read-all/route'
 import { runExtraction } from '@/lib/extraction/import'
+import { updateComplianceStatuses } from '@/lib/services/rag-engine'
 import { agreementRunsWhere } from '@/lib/extraction/runs'
 import { RUN_IN_PROGRESS_ERROR, STALE_RUN_ERROR, STALE_RUN_MS } from '@/lib/extraction/store'
 import { seedTwoTenants } from './fixtures'
@@ -544,6 +550,101 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('cross-organization access (real
             signInAs(f.sessions.acme)
             expect((await patch(f.orgs.acme.id, { name: 'Taken' })).status).toBe(403)
             expect((await prisma.organization.findUniqueOrThrow({ where: { id: f.orgs.acme.id } })).name).toBe('Acme')
+        })
+    })
+
+    describe('evidence and decision notifications', () => {
+        const idParams = (id: string) => ({ params: Promise.resolve({ id }) })
+
+        function uploadEvidence(occurrenceId: string) {
+            const form = new FormData()
+            form.append('file', new File(['%PDF-1.4 test'], 'q1-certificate.pdf', { type: 'application/pdf' }))
+            return evidenceRoute.POST(request('/x', { method: 'POST', body: form }), idParams(occurrenceId))
+        }
+
+        it("notifies the facility's lender users when the borrower uploads evidence", async () => {
+            signInAs(f.sessions.acme)
+            expect((await uploadEvidence(f.facilityA.occurrence.id)).status).toBe(201)
+
+            const rows = await prisma.notification.findMany({ where: { covenantOccurrenceId: f.facilityA.occurrence.id } })
+            expect(rows.map(r => r.userId)).toEqual([f.sessions.bankA.userId])
+            expect(rows[0]).toMatchObject({ type: 'EVIDENCE_RECEIVED', channel: 'IN_APP', readAt: null })
+            // The facility edit tests above may have renamed it, so read its current name.
+            const facility = await prisma.facility.findUniqueOrThrow({ where: { id: f.facilityA.id } })
+            expect(rows[0].payload).toMatchObject({
+                covenantTitle: 'Facility A leverage', facilityId: f.facilityA.id, facilityName: facility.name,
+                actorName: 'cfo@acme.test', fileName: 'q1-certificate.pdf',
+            })
+        })
+
+        it("refuses evidence on another org's obligation and notifies no one", async () => {
+            signInAs(f.sessions.globex)
+            expect((await uploadEvidence(f.facilityA.occurrence.id)).status).toBe(404)
+            expect(await prisma.notification.count({ where: { userId: { not: f.sessions.bankA.userId } } })).toBe(0)
+        })
+
+        it("notifies the borrower's users when the lender completes the obligation", async () => {
+            signInAs(f.sessions.bankA)
+            const res = await occurrenceRoute.PATCH(
+                request('/x', { method: 'PATCH', body: JSON.stringify({ action: 'complete' }) }),
+                idParams(f.facilityA.occurrence.id),
+            )
+            expect(res.status).toBe(200)
+            const rows = await prisma.notification.findMany({ where: { type: 'COMPLETED' } })
+            expect(rows.map(r => r.userId)).toEqual([f.sessions.acme.userId])
+            expect(rows[0].payload).toMatchObject({ actorName: 'lender@bank-a.test', covenantTitle: 'Facility A leverage' })
+        })
+
+        it("lists only the user's own notifications", async () => {
+            signInAs(f.sessions.bankA)
+            const own = await (await notificationsRoute.GET()).json()
+            expect(own.unreadCount).toBe(1)
+            expect(own.notifications.map((n: { type: string }) => n.type)).toEqual(['EVIDENCE_RECEIVED'])
+
+            signInAs(f.sessions.bankB)
+            const other = await (await notificationsRoute.GET()).json()
+            expect(other).toEqual({ notifications: [], unreadCount: 0 })
+        })
+
+        it("doesn't let a user mark another user's notification read", async () => {
+            const notification = await prisma.notification.findFirstOrThrow({ where: { userId: f.sessions.bankA.userId } })
+
+            signInAs(f.sessions.bankB)
+            expect((await notificationRoute.PATCH(request('/x', { method: 'PATCH' }), idParams(notification.id))).status).toBe(404)
+            signInAs(f.sessions.acme)
+            await readAllRoute.POST()
+            expect((await prisma.notification.findUniqueOrThrow({ where: { id: notification.id } })).readAt).toBeNull()
+
+            signInAs(f.sessions.bankA)
+            const res = await notificationRoute.PATCH(request('/x', { method: 'PATCH' }), idParams(notification.id))
+            expect(res.status).toBe(200)
+            expect((await res.json()).readAt).not.toBeNull()
+        })
+
+        it("marks all of the user's notifications read", async () => {
+            expect(await prisma.notification.count({ where: { userId: f.sessions.acme.userId, readAt: null } })).toBe(0)
+            await prisma.notification.create({ data: { userId: f.sessions.bankA.userId, type: 'OVERDUE', channel: 'IN_APP' } })
+
+            signInAs(f.sessions.bankA)
+            expect(await (await readAllRoute.POST()).json()).toEqual({ updated: 1 })
+            expect(await prisma.notification.count({ where: { userId: f.sessions.bankA.userId, readAt: null } })).toBe(0)
+        })
+
+        it('alerts both sides once when the daily job marks an obligation overdue', async () => {
+            // Facility B's obligation was due 2026-04-30 and is still pending.
+            vi.useFakeTimers({ toFake: ['Date'] })
+            vi.setSystemTime(new Date('2026-05-02T00:00:00Z'))
+            try {
+                await updateComplianceStatuses()
+                await prisma.covenantOccurrence.update({ where: { id: f.facilityB.occurrence.id }, data: { status: 'PENDING' } })
+                await updateComplianceStatuses()
+            } finally {
+                vi.useRealTimers()
+            }
+
+            const rows = await prisma.notification.findMany({ where: { covenantOccurrenceId: f.facilityB.occurrence.id, type: 'OVERDUE' } })
+            expect(rows.map(r => r.userId).sort()).toEqual([f.sessions.bankB.userId, f.sessions.globex.userId].sort())
+            expect((await prisma.covenantOccurrence.findUniqueOrThrow({ where: { id: f.facilityB.occurrence.id } })).status).toBe('OVERDUE')
         })
     })
 })
