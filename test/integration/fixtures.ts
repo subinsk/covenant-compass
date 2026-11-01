@@ -36,6 +36,11 @@ export async function seedTwoTenants() {
 }
 
 export async function clearDatabase() {
+    // Last line of defence: never wipe a database that isn't a test database.
+    const [{ db }] = await prisma.$queryRaw<{ db: string }[]>`select current_database() as db`
+    if (!db.endsWith('_test')) {
+        throw new Error(`Refusing to clear "${db}": integration tests only run against a database ending in _test`)
+    }
     await prisma.auditLog.deleteMany()
     await prisma.notification.deleteMany()
     await prisma.document.deleteMany()
