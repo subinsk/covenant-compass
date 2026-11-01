@@ -60,3 +60,23 @@ export function maxDenominatorDrop(numerator: number, denominator: number, limit
     const breachDenominator = numerator / limit
     return (1 - breachDenominator / denominator) * 100
 }
+
+// Reads a stored threshold condition such as "<= 4.0", ">= 1.25x" or "< 3.5 to 1.00".
+// Returns null when there is no usable operator and positive limit.
+export function parseThreshold(condition: string | null | undefined): { operator: Operator, limit: number } | null {
+    const match = condition?.match(/^\s*(<=|>=|<|>)\s*(\d+(?:\.\d+)?)/)
+    if (!match) return null
+    const limit = Number(match[2])
+    if (!(limit > 0)) return null
+    return { operator: match[1] as Operator, limit }
+}
+
+// Tests a reported value against a stored threshold condition. Headroom is the
+// signed percent distance to the limit (negative means breach). Null when the
+// condition can't be read, so the caller can still store the value.
+export function evaluateThreshold(condition: string | null | undefined, value: number): { passed: boolean, headroom: number } | null {
+    const terms = parseThreshold(condition)
+    if (!terms || !Number.isFinite(value)) return null
+    const result = testCovenant(terms, value, '')
+    return { passed: result.compliant, headroom: result.headroomPct }
+}

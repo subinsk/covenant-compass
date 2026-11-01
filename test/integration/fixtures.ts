@@ -80,6 +80,7 @@ async function createFacility(name: string, lenderOrgId: string, borrowerOrgId: 
             title: `${name} leverage`,
             type: 'FINANCIAL',
             frequency: 'QUARTERLY',
+            thresholdCondition: '<= 4.0',
             ownerRole: 'BORROWER',
             importance: 'HIGH',
         },

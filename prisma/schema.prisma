@@ -239,6 +239,11 @@ model CovenantOccurrence {
   ragStatus       RagStatus        @default(GREEN)
   ownerUserId     String?
   notes           String?
+  // Financial covenants: the tested ratio reported for the period and its result.
+  testedValue     Decimal?
+  testPassed      Boolean?
+  testedAt        DateTime?
+  testedByUserId  String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 

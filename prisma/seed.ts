@@ -2,6 +2,7 @@ import { PrismaClient, Frequency, Importance, OwnerRole, UserRole, OrgType, Faci
 import { addDays, subDays, addMonths, subMonths } from 'date-fns'
 import 'dotenv/config'
 import { hashPassword } from '../lib/auth/password'
+import { evaluateThreshold } from '../lib/covenants/test'
 
 const prisma = new PrismaClient({
     datasources: {
@@ -14,8 +15,9 @@ const prisma = new PrismaClient({
 const COMPANIES = ['Globex', 'Soylent Corp', 'Umbrella Corp', 'Stark Industries', 'Wayne Enterprises', 'Massive Dynamic', 'Cyberdyne Systems']
 const FACILITY_TYPES = ['Term Loan A', 'Revolver', 'Bridge Loan', 'Mezzanine Debt', 'Equipment Finance']
 const COVENANT_TEMPLATES = [
-    { title: 'Net Leverage Ratio', type: CovenantType.FINANCIAL, desc: 'Maintain Net Leverage below 4.0x', formula: 'NetDebt / EBITDA' },
-    { title: 'Interest Coverage', type: CovenantType.FINANCIAL, desc: 'Maintain Interest Coverage above 3.0x', formula: 'EBITDA / Interest' },
+    // tested: the range a seeded tested value is drawn from, straddling the limit.
+    { title: 'Net Leverage Ratio', type: CovenantType.FINANCIAL, desc: 'Maintain Net Leverage below 4.0x', formula: 'NetDebt / EBITDA', threshold: '<= 4.0', tested: [2.5, 4.3] },
+    { title: 'Interest Coverage', type: CovenantType.FINANCIAL, desc: 'Maintain Interest Coverage above 3.0x', formula: 'EBITDA / Interest', threshold: '>= 3.0', tested: [2.8, 5.0] },
     { title: 'Annual Audited Financials', type: CovenantType.REPORTING, desc: 'Deliver audited financials within 120 days of YE', freq: Frequency.ANNUAL },
     { title: 'Quarterly Compliance Cert', type: CovenantType.REPORTING, desc: 'Deliver cert within 45 days of QE', freq: Frequency.QUARTERLY },
     { title: 'Monthly Borrowing Base', type: CovenantType.REPORTING, desc: 'Deliver BBC within 15 days of ME', freq: Frequency.MONTHLY },
@@ -121,6 +123,7 @@ async function main() {
                     ownerRole: OwnerRole.BORROWER,
                     importance: Math.random() > 0.7 ? Importance.HIGH : Importance.MEDIUM,
                     metricFormula: template.formula,
+                    thresholdCondition: template.threshold,
                 }
             })
 
@@ -160,8 +163,19 @@ async function main() {
                     }
                 }
 
+                // Completed financial tests get a reported value; a breach makes them RED.
+                let test = {}
+                if (template.tested && status === OccurrenceStatus.COMPLETED) {
+                    const [low, high] = template.tested
+                    const value = Math.round((low + Math.random() * (high - low)) * 100) / 100
+                    const passed = evaluateThreshold(template.threshold, value)?.passed ?? null
+                    if (passed === false) rag = RagStatus.RED
+                    test = { testedValue: value, testPassed: passed, testedAt: subDays(dueDate, 5) }
+                }
+
                 await prisma.covenantOccurrence.create({
                     data: {
+                        ...test,
                         covenantId: cov.id,
                         facilityId: fac.id,
                         periodStartDate: current,

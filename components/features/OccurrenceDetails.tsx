@@ -10,6 +10,7 @@ import { formatPeriod } from '@/lib/format/period'
 import { isEvidenceReceived } from '@/lib/dashboard/filters'
 import type { OccurrenceAction } from '@/lib/occurrences/transitions'
 import type { FacilityView } from './FacilityDetailView'
+import { TestedValueSection } from './TestedValue'
 
 type Occurrence = FacilityView['occurrences'][number]
 
@@ -91,6 +92,8 @@ export function OccurrenceDetails({ occurrence, canManage, onClose }: {
                     <Row label="RAG"><Badge variant={RAG_VARIANT[occurrence.ragStatus]}>{occurrence.ragStatus}</Badge></Row>
                     <Row label="Completed">{occurrence.completionDate ? format(new Date(occurrence.completionDate), 'd MMM yyyy') : '—'}</Row>
                 </div>
+
+                {occurrence.covenant.type === 'FINANCIAL' && <TestedValueSection occurrence={occurrence} />}
 
                 <div className="space-y-2 text-sm">
                     <h3 className="font-medium">Notes</h3>

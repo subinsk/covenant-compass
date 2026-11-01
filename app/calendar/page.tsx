@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
+import { plainTestedValue } from '@/lib/occurrences/tested'
 import CalendarView from './CalendarView'
 
 export default async function CalendarPage() {
@@ -21,5 +22,6 @@ export default async function CalendarPage() {
         orderBy: { dueDate: 'asc' }
     })
 
-    return <CalendarView occurrences={occurrences} />
+    // testedValue is a Decimal too.
+    return <CalendarView occurrences={occurrences.map(plainTestedValue)} />
 }
