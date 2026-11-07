@@ -5,7 +5,8 @@ import { readStepDowns } from '@/lib/covenants/test'
 import { createCovenantSchema, type CreateCovenantInput } from '@/lib/validation/covenant'
 
 export const reviewActionSchema = z.object({
-    action: z.enum(['approve', 'reject']),
+    // restore puts a rejected item back in the queue.
+    action: z.enum(['approve', 'reject', 'restore']),
 })
 
 export type ReviewAction = z.infer<typeof reviewActionSchema>['action']
@@ -38,9 +39,19 @@ export function formatMetricFormula(numerator: string | null, denominator: strin
     return top || bottom || undefined
 }
 
+// The status an item must have for the action: pending to approve or reject, rejected to restore.
+export function requiredStatus(action: ReviewAction): ReviewStatus {
+    return action === 'restore' ? 'REJECTED' : 'PENDING'
+}
+
 // Decides what a review does: the new status, and for an approval the covenant to create.
 // Only pending items can be reviewed, so approving twice cannot create two covenants.
 export function reviewDecision(item: ReviewableCovenant, action: ReviewAction): ReviewDecision {
+    if (action === 'restore') {
+        return item.status === 'REJECTED'
+            ? { ok: true, status: 'PENDING', covenant: null }
+            : { ok: false, error: item.status === 'PENDING' ? 'Already waiting for review' : 'Only rejected items can be restored' }
+    }
     if (item.status !== 'PENDING') {
         return { ok: false, error: `Already ${item.status.toLowerCase()}` }
     }

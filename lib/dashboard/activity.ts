@@ -32,9 +32,12 @@ export function describeAudit(entry: AuditEntryInput, lookups: AuditLookups): Ac
 
     if (entry.entityType === 'FACILITY') {
         facilityId = entry.entityId
-        text = detail(entry.details, 'kind') === 'extraction'
-            ? `${who} started an agreement import`
-            : `${who} created the facility`
+        const kind = detail(entry.details, 'kind')
+        if (kind === 'extraction') text = `${who} started an agreement import`
+        else if (kind === 'review') {
+            const verb = { approve: 'approved', reject: 'rejected', restore: 'restored' }[detail(entry.details, 'decision') ?? ''] ?? 'reviewed'
+            text = `${who} ${verb} the extracted covenant ${detail(entry.details, 'name') ?? ''}`.trimEnd()
+        } else text = `${who} created the facility`
     } else if (entry.entityType === 'OCCURRENCE') {
         const occurrence = lookups.occurrences.get(entry.entityId)
         if (!occurrence) return null

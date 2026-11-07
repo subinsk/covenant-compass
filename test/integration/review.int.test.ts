@@ -73,6 +73,23 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('reviewing extracted covenants (
         expect(await prisma.covenant.count()).toBe(covenantsBefore + 1)
     })
 
+    it('audits each decision, and a rejected item can be restored and approved', async () => {
+        signInAs(f.sessions.bankA)
+        const item = await createExtractedItem(f.facilityA.id)
+
+        expect((await review(item.id, { action: 'reject' })).status).toBe(200)
+        expect((await review(item.id, { action: 'approve' })).status).toBe(409)
+        expect((await review(item.id, { action: 'restore' })).status).toBe(200)
+        expect(await prisma.extractedCovenant.findUniqueOrThrow({ where: { id: item.id } }))
+            .toMatchObject({ status: 'PENDING', reviewedByUserId: null, reviewedAt: null })
+        expect((await review(item.id, { action: 'restore' })).status).toBe(409)
+        expect((await review(item.id, { action: 'approve' })).status).toBe(200)
+
+        const audits = await prisma.auditLog.findMany({ where: { entityId: f.facilityA.id, action: 'UPDATE' }, orderBy: { timestamp: 'asc' } })
+        expect(audits.map(a => (a.details as { decision: string }).decision)).toEqual(['reject', 'restore', 'approve'])
+        expect(audits.every(a => a.performedByUserId === f.sessions.bankA.userId)).toBe(true)
+    })
+
     it("can't review another lender's items", async () => {
         signInAs(f.sessions.bankB)
         const item = await createExtractedItem(f.facilityA.id)

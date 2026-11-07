@@ -40,6 +40,13 @@ describe('describeAudit', () => {
             .toBe('Alice Lender started an agreement import')
     })
 
+    it('describes review decisions on extracted covenants', () => {
+        const review = (decision: string) => describeAudit(entry('FACILITY', 'fac-1', 'UPDATE', { kind: 'review', decision, name: 'Max Leverage' }), lookups)?.text
+        expect(review('approve')).toBe('Alice Lender approved the extracted covenant Max Leverage')
+        expect(review('reject')).toBe('Alice Lender rejected the extracted covenant Max Leverage')
+        expect(review('restore')).toBe('Alice Lender restored the extracted covenant Max Leverage')
+    })
+
     it('returns null for entities outside the lookups', () => {
         expect(describeAudit(entry('FACILITY', 'fac-2', 'CREATE'), lookups)).toBeNull()
         expect(describeAudit(entry('OCCURRENCE', 'occ-2', 'COMPLETE'), lookups)).toBeNull()
