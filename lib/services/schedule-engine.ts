@@ -1,9 +1,13 @@
 import { prisma } from '@/lib/prisma'
-import { OccurrenceStatus, RagStatus } from '@prisma/client'
+import { OccurrenceStatus, RagStatus, type Prisma, type PrismaClient } from '@prisma/client'
 import { addMonths, addYears, addDays, startOfDay, isBefore, isAfter } from 'date-fns'
 
-export async function generateScheduleForCovenant(covenantId: string) {
-    const covenant = await prisma.covenant.findUnique({
+type Db = PrismaClient | Prisma.TransactionClient
+
+// Creates the covenant's obligations over the facility term. Pass the transaction
+// client when the covenant is created in one, so a failure here undoes it too.
+export async function generateScheduleForCovenant(covenantId: string, db: Db = prisma) {
+    const covenant = await db.covenant.findUnique({
         where: { id: covenantId },
         include: { facility: true }
     })
@@ -73,7 +77,7 @@ export async function generateScheduleForCovenant(covenantId: string) {
 
     // Bulk create
     if (occurrencesToCreate.length > 0) {
-        await prisma.covenantOccurrence.createMany({
+        await db.covenantOccurrence.createMany({
             data: occurrencesToCreate
         })
     }

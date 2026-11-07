@@ -56,12 +56,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ fac
     if (!parsed.success) return invalidInput(parsed.error)
 
     try {
-        const covenant = await prisma.covenant.create({
-            data: { ...parsed.data, facilityId, active: true }
+        // Covenant and schedule together, so a failed schedule doesn't leave a covenant with no obligations.
+        const covenant = await prisma.$transaction(async (tx) => {
+            const created = await tx.covenant.create({
+                data: { ...parsed.data, facilityId, active: true }
+            })
+            await generateScheduleForCovenant(created.id, tx)
+            return created
         })
-
-        // Trigger Schedule Generation
-        await generateScheduleForCovenant(covenant.id)
 
         return NextResponse.json(covenant)
     } catch (e) {

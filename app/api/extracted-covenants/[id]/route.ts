@@ -29,6 +29,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: 409 })
 
     // Claim the item only while it is still pending, so two concurrent approvals can't both create a covenant.
+    // The covenant and its schedule are built in the same transaction: if the schedule fails,
+    // nothing is approved and the item stays pending, so the reviewer can simply try again.
     const result = await prisma.$transaction(async (tx) => {
         const claimed = await tx.extractedCovenant.updateMany({
             where: { id, status: 'PENDING' },
@@ -38,11 +40,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const covenant = decision.covenant
             ? await tx.covenant.create({ data: { ...decision.covenant, facilityId: item.run.facilityId, active: true } })
             : null
-        if (covenant) await tx.extractedCovenant.update({ where: { id }, data: { covenantId: covenant.id } })
+        if (covenant) {
+            await tx.extractedCovenant.update({ where: { id }, data: { covenantId: covenant.id } })
+            await generateScheduleForCovenant(covenant.id, tx)
+        }
         return { covenant }
+    }).catch((e: unknown) => {
+        console.error('Review failed', e)
+        return 'failed' as const
     })
+    if (result === 'failed') {
+        return NextResponse.json({ error: "Couldn't create the covenant's schedule, so nothing was saved. Try again." }, { status: 500 })
+    }
     if (!result) return NextResponse.json({ error: 'Already reviewed' }, { status: 409 })
 
-    if (result.covenant) await generateScheduleForCovenant(result.covenant.id)
     return NextResponse.json({ status: decision.status, covenantId: result.covenant?.id ?? null })
 }
