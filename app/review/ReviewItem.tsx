@@ -5,8 +5,8 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, Input, cn } from '@/components/ui/core'
 import { Combobox } from '@/components/ui/Combobox'
 import { FREQUENCY_LABELS } from '@/lib/covenants/new-covenant'
-import { parseFromDate, type StepDown } from '@/lib/covenants/test'
-import { OPERATORS, REVIEW_FREQUENCIES, reviewEditsSchema, type ReviewEdits } from '@/lib/extraction/review'
+import { parseFromDate, undatedStepDowns, type StepDown } from '@/lib/covenants/test'
+import { OPERATORS, REVIEW_FREQUENCIES, UNDATED_STEP_DOWN_ERROR, reviewEditsSchema, type ReviewEdits } from '@/lib/extraction/review'
 
 const OPERATOR_LABELS: Record<(typeof OPERATORS)[number], string> = {
     '<=': 'At most (<=)',
@@ -54,12 +54,19 @@ export default function ReviewItem({ item, flagged, duplicateOf, summary, childr
         if (operator !== item.operator) edits.operator = operator
         if (Number(limit) !== item.limit) edits.limit = limit.trim() === '' ? NaN : Number(limit)
         const stepDowns = steps.map(s => ({ from: s.from, limit: s.limit.trim() === '' ? NaN : Number(s.limit) }))
-        const original = JSON.stringify(item.stepDowns.map(s => ({ from: s.from, limit: s.limit })))
+        // Compared by date, so "June 30, 2027" shown as 2027-06-30 doesn't count as a change.
+        const original = JSON.stringify(item.stepDowns.map(s => ({ from: parseFromDate(s.from) ?? s.from, limit: s.limit })))
         if (JSON.stringify(stepDowns) !== original) edits.stepDowns = stepDowns
         return edits as ReviewEdits
     }
 
     async function send(action: 'approve' | 'reject', allowDuplicate = false) {
+        // An undated step-down can't be approved as extracted: open the form to date it.
+        if (action === 'approve' && !editing && undatedStepDowns(item.stepDowns).length > 0) {
+            setEditing(true)
+            setError(UNDATED_STEP_DOWN_ERROR)
+            return
+        }
         let edits: ReviewEdits | undefined
         if (action === 'approve' && editing) {
             const parsed = reviewEditsSchema.safeParse(changedEdits())

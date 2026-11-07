@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { ReviewStatus } from '@prisma/client'
 import { buildCovenantRequestBody } from '@/lib/covenants/new-covenant'
-import { readStepDowns } from '@/lib/covenants/test'
+import { readStepDowns, undatedStepDowns } from '@/lib/covenants/test'
 import { createCovenantSchema, type CreateCovenantInput } from '@/lib/validation/covenant'
 
 // Frequencies a financial test can have; one-time and event-driven covenants aren't tested on a schedule.
@@ -49,6 +49,8 @@ export type ReviewDecision =
     | { ok: true, status: ReviewStatus, covenant: CreateCovenantInput | null }
     | { ok: false, error: string }
 
+export const UNDATED_STEP_DOWN_ERROR = 'Pick the start date of each step-down (Edit) before approving.'
+
 // '<=' and 5.75 -> '<= 5.75'. The limit is printed as stored (3.5, not 3.50).
 export function formatThreshold(operator: string, limit: number): string {
     return `${operator} ${limit}`
@@ -88,6 +90,10 @@ export function reviewDecision(item: ReviewableCovenant, action: ReviewAction, e
         thresholdCondition: formatThreshold(edits.operator ?? item.operator, edits.limit ?? item.limit),
     })
     const stepDowns = edits.stepDowns ?? readStepDowns(item.stepDowns)
+    // A step-down without a readable start date would never apply, so the limit would never drop.
+    if (undatedStepDowns(stepDowns).length > 0) {
+        return { ok: false, error: UNDATED_STEP_DOWN_ERROR }
+    }
     const covenant = createCovenantSchema.parse({
         ...body,
         description: item.quote,
