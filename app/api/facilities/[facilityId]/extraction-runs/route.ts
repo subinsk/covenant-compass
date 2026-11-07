@@ -10,7 +10,7 @@ import { extractionConfigError, runExtraction } from '@/lib/extraction/import'
 import { completeRun, failRun, findActiveRun, RUN_IN_PROGRESS_ERROR, setRunStage } from '@/lib/extraction/store'
 import { INACTIVE_FACILITY_ERROR } from '@/lib/extraction/runs'
 import { storageKey } from '@/lib/documents/upload'
-import { saveFile } from '@/lib/storage/files'
+import { deleteFile, saveFile } from '@/lib/storage/files'
 
 // Seconds the platform keeps the function alive, including the extraction run after the response.
 export const maxDuration = 300
@@ -70,6 +70,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ fac
         return NextResponse.json({ error: "Couldn't store the file. Try again." }, { status: 500 })
     }
 
+    // Without a run nothing points at the file, so remove it rather than leave it orphaned.
     const run = await prisma.extractionRun.create({
         data: {
             id: runId,
@@ -82,7 +83,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ fac
             stage: 'READING',
             createdByUserId: session.userId,
         },
+    }).catch(async (e: unknown) => {
+        console.error('Creating the extraction run failed', e)
+        await deleteFile(fileKey).catch(() => {})
+        return null
     })
+    if (!run) return NextResponse.json({ error: "Couldn't start the import. Try again." }, { status: 500 })
     await recordAudit(prisma, {
         entityType: 'FACILITY',
         entityId: facilityId,

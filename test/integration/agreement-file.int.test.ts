@@ -6,6 +6,7 @@ import * as uploadRunRoute from '@/app/api/facilities/[facilityId]/extraction-ru
 import * as agreementFileRoute from '@/app/api/extraction-runs/[id]/file/route'
 import * as edgarImportRoute from '@/app/api/extraction-runs/route'
 import { seedTwoTenants } from './fixtures'
+import { readFile } from '@/lib/storage/files'
 
 vi.mock('@/lib/auth/session', () => ({ getSession: vi.fn() }))
 // Never run a real extraction; the upload only needs to store the file and start a run.
@@ -71,6 +72,21 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('uploaded agreements are stored 
         }))
         expect(edgar.status).toBe(400)
         expect(await prisma.extractionRun.count({ where: { facilityId: f.facilityA.id } })).toBe(0)
+    })
+
+    it('removes the stored file when the run cannot be created', async () => {
+        signInAs(f.sessions.bankA)
+        const runId = '00000000-0000-4000-8000-000000000001'
+        vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce(runId)
+        // Both spies only replace one call; later calls go through to the real functions.
+        vi.spyOn(prisma.extractionRun, 'create').mockRejectedValueOnce(new Error('db down'))
+
+        const form = new FormData()
+        form.append('file', new File(['Leverage Ratio not to exceed 3.50:1.00.'], 'Agreement.txt'))
+        const res = await uploadRunRoute.POST(new Request('http://localhost/x', { method: 'POST', body: form }), { params: Promise.resolve({ facilityId: f.facilityA.id }) })
+
+        expect(res.status).toBe(500)
+        await expect(readFile(`${runId}-Agreement.txt`)).rejects.toThrow()
     })
 
     it('returns 404 for an EDGAR run, which has no stored file', async () => {

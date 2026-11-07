@@ -1,4 +1,4 @@
-import { mkdir, readFile as fsReadFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile as fsReadFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 // Uploaded files live on local disk under `uploads/` at the repo root. Callers only
@@ -18,4 +18,9 @@ export async function saveFile(key: string, data: Uint8Array): Promise<void> {
 
 export async function readFile(key: string): Promise<Buffer> {
     return fsReadFile(keyPath(key))
+}
+
+// Removes a stored file. A file that is already gone is not an error.
+export async function deleteFile(key: string): Promise<void> {
+    await rm(keyPath(key), { force: true })
 }
