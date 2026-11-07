@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
 import { formatThreshold } from '@/lib/extraction/review'
+import { existingCovenants, findDuplicate } from '@/lib/extraction/duplicates'
 import { readStepDowns } from '@/lib/covenants/test'
 import { StepDownList } from '@/components/features/StepDowns'
 import { VerifiedBadge } from '@/components/features/VerifiedBadge'
@@ -48,6 +49,12 @@ export default async function ReviewPage() {
         include: { run: { select: { sourceUrl: true, sourceName: true, model: true, createdAt: true, facility: { select: { id: true, name: true } } } } },
     })
 
+    // Covenants each item would duplicate, and items extracted twice (e.g. the same agreement imported again).
+    const existing = await existingCovenants(prisma, [...new Set(items.map(i => i.run.facility.id))])
+    const duplicateOf = (item: (typeof items)[number]) => findDuplicate(item, existing.get(item.run.facility.id) ?? [])
+    const pendingTwice = (item: (typeof items)[number]) =>
+        items.some(other => other.id !== item.id && other.run.facility.id === item.run.facility.id && other.metric === item.metric)
+
     // Recently rejected items, so a rejection can be checked and undone.
     const rejected = await prisma.extractedCovenant.findMany({
         where: { status: 'REJECTED', run: { facility: facilityScope(session) } },
@@ -91,11 +98,13 @@ export default async function ReviewPage() {
                     {items.map((item) => {
                         const flagged = !item.verified || item.directionConflict
                         const stepDowns = readStepDowns(item.stepDowns)
+                        const duplicate = duplicateOf(item)
                         return (
                             <ReviewItem
                                 key={item.id}
                                 item={{ id: item.id, name: item.name, operator: item.operator, limit: item.limit, stepDowns }}
                                 flagged={flagged}
+                                duplicateOf={duplicate?.title ?? null}
                                 summary={<>
                                     <CardTitle className="text-base">{item.name}</CardTitle>
                                     <div className="text-sm">
@@ -111,6 +120,8 @@ export default async function ReviewPage() {
                                             : <Badge variant="warning">limit not in quote</Badge>}
                                         {item.operatorCorrected && <Badge variant="warning">operator corrected</Badge>}
                                         {item.directionConflict && <Badge variant="destructive">check direction</Badge>}
+                                        {duplicate && <Badge variant="warning" title="Approving would add a second covenant and double its obligations">already on facility: {duplicate.title}</Badge>}
+                                        {!duplicate && pendingTwice(item) && <Badge variant="warning" title="Another import found the same covenant; approve only one">also pending from another import</Badge>}
                                     </div>
                                 </>}
                             >

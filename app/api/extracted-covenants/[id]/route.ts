@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
 import { recordAudit } from '@/lib/audit/record'
+import { existingCovenants, findDuplicate } from '@/lib/extraction/duplicates'
 import { requiredStatus, reviewActionSchema, reviewDecision } from '@/lib/extraction/review'
 import { generateScheduleForCovenant } from '@/lib/services/schedule-engine'
 import { invalidInput } from '@/lib/validation/http'
@@ -29,6 +30,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const decision = reviewDecision(item, parsed.data.action, parsed.data.edits)
     if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: 409 })
+
+    // A second covenant for the same test would double the facility's obligations,
+    // so approving one needs an explicit go-ahead.
+    if (decision.covenant && !parsed.data.allowDuplicate) {
+        const existing = (await existingCovenants(prisma, [item.run.facilityId])).get(item.run.facilityId) ?? []
+        const duplicate = findDuplicate({ name: decision.covenant.title, metric: item.metric }, existing)
+        if (duplicate) {
+            return NextResponse.json(
+                { error: `This facility already has "${duplicate.title}".`, duplicate: { id: duplicate.id, title: duplicate.title } },
+                { status: 409 },
+            )
+        }
+    }
 
     // Claim the item only while it is still pending, so two concurrent approvals can't both create a covenant.
     // The covenant and its schedule are built in the same transaction: if the schedule fails,

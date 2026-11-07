@@ -28,6 +28,8 @@ export const reviewActionSchema = z.object({
     action: z.enum(['approve', 'reject', 'restore']),
     // Only used when approving.
     edits: reviewEditsSchema.optional(),
+    // Approve even though the facility already has a matching covenant.
+    allowDuplicate: z.boolean().optional(),
 })
 
 export type ReviewAction = z.infer<typeof reviewActionSchema>['action']
