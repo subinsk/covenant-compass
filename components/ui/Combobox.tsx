@@ -4,12 +4,14 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Check, ChevronDown, Plus, Search } from 'lucide-react'
 import { cn } from '@/components/ui/core'
 
-export type ComboboxOption = { value: string; label: string }
+// dot: optional colour class for a small leading dot, e.g. 'bg-red-500'.
+export type ComboboxOption = { value: string; label: string; dot?: string }
 
 // A searchable select: a button that opens a filterable list. Arrow keys move,
 // Enter picks, Escape closes (without closing a surrounding modal). With
 // onCreate, the list ends with an "add new" action that gets the search text.
-export function Combobox({ options, value, onChange, placeholder = 'Select…', searchPlaceholder = 'Search…', invalid, onCreate, createLabel = 'Add new' }: {
+// searchable={false} drops the search box, for short lists.
+export function Combobox({ options, value, onChange, placeholder = 'Select…', searchPlaceholder = 'Search…', invalid, onCreate, createLabel = 'Add new', searchable = true }: {
     options: ComboboxOption[]
     value: string
     onChange: (value: string) => void
@@ -18,6 +20,7 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
     invalid?: boolean
     onCreate?: (query: string) => void
     createLabel?: string
+    searchable?: boolean
 }) {
     const [open, setOpen] = useState(false)
     const [query, setQuery] = useState('')
@@ -104,13 +107,17 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
                 aria-haspopup="listbox"
                 aria-expanded={open}
                 aria-controls={listId}
+                aria-activedescendant={open && !searchable && active <= lastIndex ? `${listId}-${active}` : undefined}
                 className={cn(
                     'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     open && 'ring-2 ring-ring',
                     invalid && 'border-destructive'
                 )}
             >
-                <span className={cn('truncate', !selected && 'text-muted-foreground')}>{selected?.label ?? placeholder}</span>
+                <span className={cn('flex min-w-0 items-center gap-2', !selected && 'text-muted-foreground')}>
+                    {selected?.dot && <span className={cn('h-2 w-2 shrink-0 rounded-full', selected.dot)} />}
+                    <span className="truncate">{selected?.label ?? placeholder}</span>
+                </span>
                 <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200', open && 'rotate-180')} />
             </button>
 
@@ -120,7 +127,7 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
                     onClick={e => e.preventDefault()}
                     className="absolute left-0 right-0 top-full z-10 mt-1.5 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg animate-pop-in"
                 >
-                    <div className="flex items-center gap-2 border-b px-3">
+                    {searchable && <div className="flex items-center gap-2 border-b px-3">
                         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <input
                             autoFocus
@@ -133,7 +140,7 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
                             aria-activedescendant={active <= lastIndex ? `${listId}-${active}` : undefined}
                             className="h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                         />
-                    </div>
+                    </div>}
                     <ul ref={listRef} id={listId} role="listbox" className="max-h-56 overflow-y-auto p-1">
                         {filtered.length === 0 ? (
                             <li className="px-2 py-6 text-center text-sm text-muted-foreground">No matches</li>
@@ -152,7 +159,10 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
                                     option.value === value && 'font-medium'
                                 )}
                             >
-                                <span className="truncate">{option.label}</span>
+                                <span className="flex min-w-0 items-center gap-2">
+                                    {option.dot && <span className={cn('h-2 w-2 shrink-0 rounded-full', option.dot)} />}
+                                    <span className="truncate">{option.label}</span>
+                                </span>
                                 {option.value === value && <Check className="h-4 w-4 shrink-0 text-primary" />}
                             </li>
                         ))}
