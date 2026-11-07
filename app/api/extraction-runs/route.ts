@@ -7,6 +7,7 @@ import { loadAgreementText } from '@/lib/agreements/text'
 import { extractCovenants } from '@/lib/extraction/extract'
 import { extractionConfigError, importAgreementSchema, runExtraction } from '@/lib/extraction/import'
 import { completeRun, failRun, findActiveRun, RUN_IN_PROGRESS_ERROR, setRunStage } from '@/lib/extraction/store'
+import { INACTIVE_FACILITY_ERROR } from '@/lib/extraction/runs'
 import { invalidInput } from '@/lib/validation/http'
 
 // Seconds the platform keeps the function alive, including the extraction run after the response.
@@ -27,10 +28,13 @@ export async function POST(request: Request) {
 
     const facility = await prisma.facility.findUnique({
         where: { id: facilityId },
-        select: { lenderOrgId: true, borrowerOrgId: true },
+        select: { lenderOrgId: true, borrowerOrgId: true, status: true },
     })
     if (!facility || !canAccessFacility(session, facility)) {
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
+    }
+    if (facility.status !== 'ACTIVE') {
+        return NextResponse.json({ error: INACTIVE_FACILITY_ERROR }, { status: 400 })
     }
     if (await findActiveRun(prisma, facilityId, new Date())) {
         return NextResponse.json({ error: RUN_IN_PROGRESS_ERROR }, { status: 409 })

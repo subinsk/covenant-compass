@@ -10,16 +10,18 @@ import {
     saveErrorMessage, type CovenantFormData,
 } from '@/lib/covenants/new-covenant'
 import { agreementFileError, formatBytes, type UploadLimits } from '@/lib/agreements/upload-check'
-import { startedRunView, type AgreementRunView } from '@/lib/extraction/runs'
+import { INACTIVE_FACILITY_ERROR, startedRunView, type AgreementRunView } from '@/lib/extraction/runs'
 
 const inputTabs = [
     { id: 'paste', label: 'Paste clause' },
     { id: 'upload', label: 'Upload agreement' },
 ] as const
 
-export function AddCovenantModal({ onClose, facilityId, uploadLimits, onUploadStarted }: {
+export function AddCovenantModal({ onClose, facilityId, canImportAgreement, uploadLimits, onUploadStarted }: {
     onClose: () => void
     facilityId: string
+    // False for matured or defaulted facilities: the upload tab explains instead.
+    canImportAgreement: boolean
     uploadLimits: UploadLimits
     onUploadStarted: (run: AgreementRunView) => void
 }) {
@@ -115,7 +117,11 @@ export function AddCovenantModal({ onClose, facilityId, uploadLimits, onUploadSt
                     </div>
                 )}
 
-                {step === 'input' && inputTab === 'upload' ? (
+                {step === 'input' && inputTab === 'upload' && !canImportAgreement ? (
+                    <p className="rounded-md border bg-muted/40 p-4 text-sm text-muted-foreground">
+                        {INACTIVE_FACILITY_ERROR} This facility is matured or defaulted. You can still add covenants by pasting the clause.
+                    </p>
+                ) : step === 'input' && inputTab === 'upload' ? (
                     <UploadAgreement
                         facilityId={facilityId}
                         limits={uploadLimits}

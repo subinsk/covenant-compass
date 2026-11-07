@@ -8,6 +8,7 @@ import { agreementFileError, formatBytes } from '@/lib/agreements/upload-check'
 import { extractCovenants } from '@/lib/extraction/extract'
 import { extractionConfigError, runExtraction } from '@/lib/extraction/import'
 import { completeRun, failRun, findActiveRun, RUN_IN_PROGRESS_ERROR, setRunStage } from '@/lib/extraction/store'
+import { INACTIVE_FACILITY_ERROR } from '@/lib/extraction/runs'
 import { storageKey } from '@/lib/documents/upload'
 import { saveFile } from '@/lib/storage/files'
 
@@ -29,10 +30,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ fac
 
     const facility = await prisma.facility.findUnique({
         where: { id: facilityId },
-        select: { lenderOrgId: true, borrowerOrgId: true },
+        select: { lenderOrgId: true, borrowerOrgId: true, status: true },
     })
     if (!facility || !canAccessFacility(session, facility)) {
         return NextResponse.json({ error: 'Facility not found' }, { status: 404 })
+    }
+    if (facility.status !== 'ACTIVE') {
+        return NextResponse.json({ error: INACTIVE_FACILITY_ERROR }, { status: 400 })
     }
     if (await findActiveRun(prisma, facilityId, new Date())) {
         return NextResponse.json({ error: RUN_IN_PROGRESS_ERROR }, { status: 409 })

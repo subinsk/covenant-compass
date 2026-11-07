@@ -545,6 +545,7 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                 <AddCovenantModal
                     onClose={() => setIsAddModalOpen(false)}
                     facilityId={facility.id}
+                    canImportAgreement={facility.status === 'ACTIVE'}
                     uploadLimits={uploadLimits}
                     onUploadStarted={run => setStartedRuns(runs => [run, ...runs])}
                 />,
