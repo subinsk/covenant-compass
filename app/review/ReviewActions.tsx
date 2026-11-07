@@ -3,12 +3,14 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/core'
 
-export default function ReviewActions({ id }: { id: string }) {
+type Action = 'approve' | 'reject' | 'restore'
+
+export default function ReviewActions({ id, actions = ['reject', 'approve'] }: { id: string, actions?: Action[] }) {
     const router = useRouter()
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    async function review(action: 'approve' | 'reject') {
+    async function review(action: Action) {
         setBusy(true)
         setError(null)
         try {
@@ -33,8 +35,9 @@ export default function ReviewActions({ id }: { id: string }) {
     return (
         <div className="flex items-center gap-2">
             {error && <span className="text-xs text-destructive">{error}</span>}
-            <Button variant="outline" size="sm" disabled={busy} onClick={() => review('reject')}>Reject</Button>
-            <Button size="sm" disabled={busy} onClick={() => review('approve')}>Approve</Button>
+            {actions.includes('restore') && <Button variant="outline" size="sm" disabled={busy} onClick={() => review('restore')}>Restore</Button>}
+            {actions.includes('reject') && <Button variant="outline" size="sm" disabled={busy} onClick={() => review('reject')}>Reject</Button>}
+            {actions.includes('approve') && <Button size="sm" disabled={busy} onClick={() => review('approve')}>Approve</Button>}
         </div>
     )
 }

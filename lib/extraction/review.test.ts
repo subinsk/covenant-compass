@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMetricFormula, formatThreshold, reviewActionSchema, reviewDecision, type ReviewableCovenant } from './review'
+import { formatMetricFormula, formatThreshold, requiredStatus, reviewActionSchema, reviewDecision, type ReviewableCovenant } from './review'
 
 const pending: ReviewableCovenant = {
     status: 'PENDING',
@@ -72,12 +72,21 @@ describe('reviewDecision', () => {
         expect(reviewDecision({ ...pending, status: 'APPROVED' }, 'reject')).toEqual({ ok: false, error: 'Already approved' })
         expect(reviewDecision({ ...pending, status: 'REJECTED' }, 'approve')).toEqual({ ok: false, error: 'Already rejected' })
     })
+
+    it('restores only rejected items, back to pending', () => {
+        expect(reviewDecision({ ...pending, status: 'REJECTED' }, 'restore')).toEqual({ ok: true, status: 'PENDING', covenant: null })
+        expect(reviewDecision(pending, 'restore')).toEqual({ ok: false, error: 'Already waiting for review' })
+        expect(reviewDecision({ ...pending, status: 'APPROVED' }, 'restore')).toEqual({ ok: false, error: 'Only rejected items can be restored' })
+        expect(requiredStatus('restore')).toBe('REJECTED')
+        expect(requiredStatus('approve')).toBe('PENDING')
+    })
 })
 
 describe('reviewActionSchema', () => {
-    it('accepts approve and reject only', () => {
+    it('accepts approve, reject and restore only', () => {
         expect(reviewActionSchema.safeParse({ action: 'approve' }).success).toBe(true)
         expect(reviewActionSchema.safeParse({ action: 'reject' }).success).toBe(true)
+        expect(reviewActionSchema.safeParse({ action: 'restore' }).success).toBe(true)
         expect(reviewActionSchema.safeParse({ action: 'delete' }).success).toBe(false)
         expect(reviewActionSchema.safeParse({}).success).toBe(false)
     })

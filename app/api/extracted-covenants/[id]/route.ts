@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
-import { reviewActionSchema, reviewDecision } from '@/lib/extraction/review'
+import { recordAudit } from '@/lib/audit/record'
+import { requiredStatus, reviewActionSchema, reviewDecision } from '@/lib/extraction/review'
 import { generateScheduleForCovenant } from '@/lib/services/schedule-engine'
 import { invalidInput } from '@/lib/validation/http'
 
-// PATCH /api/extracted-covenants/[id]  { action: 'approve' | 'reject' }
-// Approving creates a Covenant on the run's facility and links it.
+// PATCH /api/extracted-covenants/[id]  { action: 'approve' | 'reject' | 'restore' }
+// Approving creates a Covenant on the run's facility and links it. Restoring puts a
+// rejected item back in the queue. Every decision is audited against the facility.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     const session = await getSession()
@@ -32,9 +34,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // The covenant and its schedule are built in the same transaction: if the schedule fails,
     // nothing is approved and the item stays pending, so the reviewer can simply try again.
     const result = await prisma.$transaction(async (tx) => {
+        const restoring = parsed.data.action === 'restore'
         const claimed = await tx.extractedCovenant.updateMany({
-            where: { id, status: 'PENDING' },
-            data: { status: decision.status, reviewedByUserId: session.userId, reviewedAt: new Date() },
+            where: { id, status: requiredStatus(parsed.data.action) },
+            data: restoring
+                ? { status: decision.status, reviewedByUserId: null, reviewedAt: null }
+                : { status: decision.status, reviewedByUserId: session.userId, reviewedAt: new Date() },
         })
         if (claimed.count === 0) return null
         const covenant = decision.covenant
@@ -44,6 +49,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             await tx.extractedCovenant.update({ where: { id }, data: { covenantId: covenant.id } })
             await generateScheduleForCovenant(covenant.id, tx)
         }
+        await recordAudit(tx, {
+            entityType: 'FACILITY',
+            entityId: item.run.facilityId,
+            action: 'UPDATE',
+            userId: session.userId,
+            details: { kind: 'review', decision: parsed.data.action, name: item.name, extractedCovenantId: id, covenantId: covenant?.id ?? null },
+        })
         return { covenant }
     }).catch((e: unknown) => {
         console.error('Review failed', e)

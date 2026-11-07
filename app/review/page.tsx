@@ -46,6 +46,14 @@ export default async function ReviewPage() {
         include: { run: { select: { sourceUrl: true, sourceName: true, model: true, createdAt: true, facility: { select: { id: true, name: true } } } } },
     })
 
+    // Recently rejected items, so a rejection can be checked and undone.
+    const rejected = await prisma.extractedCovenant.findMany({
+        where: { status: 'REJECTED', run: { facility: facilityScope(session) } },
+        orderBy: { reviewedAt: 'desc' },
+        take: 20,
+        include: { reviewedBy: { select: { name: true } }, run: { select: { facility: { select: { id: true, name: true } } } } },
+    })
+
     // Group by facility, keeping the newest-run-first order.
     const groups = new Map<string, { facility: { id: string, name: string }, items: typeof items }>()
     for (const item of items) {
@@ -120,6 +128,31 @@ export default async function ReviewPage() {
                     })}
                 </section>
             ))}
+
+            {rejected.length > 0 && (
+                <details className="group rounded-lg border bg-card">
+                    <summary className="cursor-pointer list-none px-6 py-4 text-sm font-medium">
+                        Recently rejected <span className="text-muted-foreground">({rejected.length})</span>
+                        <span className="ml-2 text-xs font-normal text-muted-foreground group-open:hidden">Show</span>
+                    </summary>
+                    <ul className="divide-y border-t">
+                        {rejected.map((item) => (
+                            <li key={item.id} className="flex flex-col gap-2 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0 text-sm">
+                                    <p className="font-medium">{item.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        <Link href={`/facilities/${item.run.facility.id}`} className="hover:underline">{item.run.facility.name}</Link>
+                                        {' · '}<span className="font-mono">{formatThreshold(item.operator, item.limit)}</span>
+                                        {' · '}Rejected{item.reviewedBy && <> by {item.reviewedBy.name}</>}
+                                        {item.reviewedAt && <> on {item.reviewedAt.toISOString().slice(0, 10)}</>}
+                                    </p>
+                                </div>
+                                <ReviewActions id={item.id} actions={['restore']} />
+                            </li>
+                        ))}
+                    </ul>
+                </details>
+            )}
         </div>
     )
 }
