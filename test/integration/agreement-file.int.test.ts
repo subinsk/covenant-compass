@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth/session'
 import type { SessionPayload } from '@/lib/auth/jwt'
 import * as uploadRunRoute from '@/app/api/facilities/[facilityId]/extraction-runs/route'
 import * as agreementFileRoute from '@/app/api/extraction-runs/[id]/file/route'
+import * as edgarImportRoute from '@/app/api/extraction-runs/route'
 import { seedTwoTenants } from './fixtures'
 
 vi.mock('@/lib/auth/session', () => ({ getSession: vi.fn() }))
@@ -52,6 +53,24 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('uploaded agreements are stored 
         expect((await download()).status).toBe(404)
         signInAs(f.sessions.acme)
         expect((await download()).status).toBe(403)
+    })
+
+    it('refuses agreements for a matured or defaulted facility, by upload or from EDGAR', async () => {
+        signInAs(f.sessions.bankA)
+        await prisma.facility.update({ where: { id: f.facilityA.id }, data: { status: 'MATURED' } })
+
+        const form = new FormData()
+        form.append('file', new File(['Leverage Ratio not to exceed 3.50:1.00.'], 'Agreement.txt'))
+        const upload = await uploadRunRoute.POST(new Request('http://localhost/x', { method: 'POST', body: form }), { params: Promise.resolve({ facilityId: f.facilityA.id }) })
+        expect(upload.status).toBe(400)
+        expect((await upload.json()).error).toMatch(/active facilities/)
+
+        const edgar = await edgarImportRoute.POST(new Request('http://localhost/x', {
+            method: 'POST',
+            body: JSON.stringify({ facilityId: f.facilityA.id, url: 'https://www.sec.gov/Archives/edgar/data/1/000000000000000000/ex10.htm' }),
+        }))
+        expect(edgar.status).toBe(400)
+        expect(await prisma.extractionRun.count({ where: { facilityId: f.facilityA.id } })).toBe(0)
     })
 
     it('returns 404 for an EDGAR run, which has no stored file', async () => {

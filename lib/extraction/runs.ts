@@ -28,6 +28,9 @@ export type AgreementRunView = {
     items: PendingExtractedItem[]
 }
 
+// Matured and defaulted facilities don't take new agreements.
+export const INACTIVE_FACILITY_ERROR = 'Agreements can only be imported for active facilities.'
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // Runs worth showing: from the last 7 days, still running, done with covenants waiting
