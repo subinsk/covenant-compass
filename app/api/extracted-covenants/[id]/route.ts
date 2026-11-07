@@ -27,7 +27,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const parsed = reviewActionSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) return invalidInput(parsed.error)
 
-    const decision = reviewDecision(item, parsed.data.action)
+    const decision = reviewDecision(item, parsed.data.action, parsed.data.edits)
     if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: 409 })
 
     // Claim the item only while it is still pending, so two concurrent approvals can't both create a covenant.
@@ -54,7 +54,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             entityId: item.run.facilityId,
             action: 'UPDATE',
             userId: session.userId,
-            details: { kind: 'review', decision: parsed.data.action, name: item.name, extractedCovenantId: id, covenantId: covenant?.id ?? null },
+            details: {
+                kind: 'review', decision: parsed.data.action, name: covenant?.title ?? item.name, extractedCovenantId: id, covenantId: covenant?.id ?? null,
+                // What the reviewer changed from the extraction, if anything.
+                ...(parsed.data.action === 'approve' && parsed.data.edits && Object.keys(parsed.data.edits).length > 0 && { edits: parsed.data.edits }),
+            },
         })
         return { covenant }
     }).catch((e: unknown) => {

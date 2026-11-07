@@ -194,6 +194,9 @@ function ItemRow({ item }: { item: PendingExtractedItem }) {
                                 {busy === 'approve' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
                                 Approve
                             </Button>
+                            <Link href={`/review#item-${item.id}`} className="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                                Edit
+                            </Link>
                             <Button size="sm" variant="outline" onClick={() => review('reject')} disabled={busy !== null}>
                                 {busy === 'reject' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <X className="mr-1 h-4 w-4" />}
                                 Reject

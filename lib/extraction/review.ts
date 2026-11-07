@@ -4,9 +4,30 @@ import { buildCovenantRequestBody } from '@/lib/covenants/new-covenant'
 import { readStepDowns } from '@/lib/covenants/test'
 import { createCovenantSchema, type CreateCovenantInput } from '@/lib/validation/covenant'
 
+// Frequencies a financial test can have; one-time and event-driven covenants aren't tested on a schedule.
+export const REVIEW_FREQUENCIES = ['MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL'] as const
+export const OPERATORS = ['<=', '<', '>=', '>'] as const
+
+// Corrections a reviewer makes before approving. Each field is optional and replaces
+// what the model extracted. Step-down dates must be real dates, so they can be applied.
+export const reviewEditsSchema = z.object({
+    name: z.string().trim().min(1, 'Name is required').max(200),
+    frequency: z.enum(REVIEW_FREQUENCIES),
+    operator: z.enum(OPERATORS),
+    limit: z.number().positive('Limit must be above 0'),
+    stepDowns: z.array(z.object({
+        from: z.iso.date('Step-down dates must be YYYY-MM-DD'),
+        limit: z.number().positive('Step-down limits must be above 0'),
+    })).max(20),
+}).partial()
+
+export type ReviewEdits = z.infer<typeof reviewEditsSchema>
+
 export const reviewActionSchema = z.object({
     // restore puts a rejected item back in the queue.
     action: z.enum(['approve', 'reject', 'restore']),
+    // Only used when approving.
+    edits: reviewEditsSchema.optional(),
 })
 
 export type ReviewAction = z.infer<typeof reviewActionSchema>['action']
@@ -46,7 +67,7 @@ export function requiredStatus(action: ReviewAction): ReviewStatus {
 
 // Decides what a review does: the new status, and for an approval the covenant to create.
 // Only pending items can be reviewed, so approving twice cannot create two covenants.
-export function reviewDecision(item: ReviewableCovenant, action: ReviewAction): ReviewDecision {
+export function reviewDecision(item: ReviewableCovenant, action: ReviewAction, edits: ReviewEdits = {}): ReviewDecision {
     if (action === 'restore') {
         return item.status === 'REJECTED'
             ? { ok: true, status: 'PENDING', covenant: null }
@@ -58,13 +79,13 @@ export function reviewDecision(item: ReviewableCovenant, action: ReviewAction): 
     if (action === 'reject') return { ok: true, status: 'REJECTED', covenant: null }
 
     const body = buildCovenantRequestBody({
-        title: item.name,
+        title: edits.name ?? item.name,
         type: 'FINANCIAL',
-        frequency: 'QUARTERLY',
+        frequency: edits.frequency ?? 'QUARTERLY',
         metricFormula: formatMetricFormula(item.numerator, item.denominator),
-        thresholdCondition: formatThreshold(item.operator, item.limit),
+        thresholdCondition: formatThreshold(edits.operator ?? item.operator, edits.limit ?? item.limit),
     })
-    const stepDowns = readStepDowns(item.stepDowns)
+    const stepDowns = edits.stepDowns ?? readStepDowns(item.stepDowns)
     const covenant = createCovenantSchema.parse({
         ...body,
         description: item.quote,
