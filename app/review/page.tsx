@@ -6,6 +6,7 @@ import { facilityScope, isLender } from '@/lib/auth/access'
 import { formatThreshold } from '@/lib/extraction/review'
 import { readStepDowns } from '@/lib/covenants/test'
 import { StepDownList } from '@/components/features/StepDowns'
+import { VerifiedBadge } from '@/components/features/VerifiedBadge'
 import { failStaleRuns } from '@/lib/extraction/store'
 import { Badge, Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
 import ReviewActions from './ReviewActions'
@@ -100,9 +101,7 @@ export default async function ReviewPage() {
                                         </div>
                                         <StepDownList operator={item.operator} stepDowns={readStepDowns(item.stepDowns)} />
                                         <div className="flex flex-wrap gap-1 pt-1">
-                                            {item.verified
-                                                ? <Badge variant="success">quote found in source</Badge>
-                                                : <Badge variant="destructive">quote not found in source</Badge>}
+                                            <VerifiedBadge verified={item.verified} />
                                             {item.limitInQuote
                                                 ? <Badge variant="secondary">limit in quote</Badge>
                                                 : <Badge variant="warning">limit not in quote</Badge>}

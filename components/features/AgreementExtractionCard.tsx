@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Check, FileSearch, Loader2, X } from 'lucide-react'
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
+import { Button, Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
 import { formatThreshold } from '@/lib/extraction/review'
 import type { AgreementRunView, PendingExtractedItem } from '@/lib/extraction/runs'
 import { StepDownList } from './StepDowns'
+import { VerifiedBadge } from './VerifiedBadge'
 
 const POLL_MS = 2000
 
@@ -175,9 +176,7 @@ function ItemRow({ item }: { item: PendingExtractedItem }) {
                 <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium">{item.name}</span>
-                        {item.verified
-                            ? <Badge variant="success" title="The quote was found in the document">Verified</Badge>
-                            : <Badge variant="warning" title="The quote was not found in the document; check it">Unverified</Badge>}
+                        <VerifiedBadge verified={item.verified} />
                     </div>
                     <p className="text-sm">
                         <span className="font-mono font-semibold">{formatThreshold(item.operator, item.limit)}</span>
