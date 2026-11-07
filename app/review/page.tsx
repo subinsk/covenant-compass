@@ -15,7 +15,12 @@ import ReviewActions from './ReviewActions'
 import ReviewItem from './ReviewItem'
 import ImportAgreement, { type RunSummary } from './ImportAgreement'
 
-export default async function ReviewPage() {
+// Recent imports shown by default; ?runs=all shows up to RUNS_MAX.
+const RUNS_SHOWN = 10
+const RUNS_MAX = 100
+
+export default async function ReviewPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+    const showAllRuns = (await searchParams).runs === 'all'
     const session = await getSession()
     if (!session) redirect('/login')
     if (!isLender(session)) redirect('/portal')
@@ -27,14 +32,18 @@ export default async function ReviewPage() {
         orderBy: { name: 'asc' },
     })
     await failStaleRuns(prisma, new Date(), { facility: facilityScope(session) })
-    const recentRuns = await prisma.extractionRun.findMany({
-        where: { facility: facilityScope(session) },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        include: { facility: { select: { name: true } }, _count: { select: { items: true } } },
-    })
+    const [recentRuns, runTotal] = await Promise.all([
+        prisma.extractionRun.findMany({
+            where: { facility: facilityScope(session) },
+            orderBy: { createdAt: 'desc' },
+            take: showAllRuns ? RUNS_MAX : RUNS_SHOWN,
+            include: { facility: { select: { id: true, name: true } }, _count: { select: { items: true } } },
+        }),
+        prisma.extractionRun.count({ where: { facility: facilityScope(session) } }),
+    ])
     const runs: RunSummary[] = recentRuns.map((run) => ({
         id: run.id,
+        facilityId: run.facility.id,
         facilityName: run.facility.name,
         sourceUrl: run.sourceUrl,
         sourceName: run.sourceName,
@@ -83,11 +92,15 @@ export default async function ReviewPage() {
                 </p>
             </div>
 
-            <ImportAgreement facilities={facilities} runs={runs} />
+            <ImportAgreement facilities={facilities} runs={runs} runTotal={runTotal} showingAll={showAllRuns} />
 
             {groups.size === 0 && (
                 <Card>
-                    <CardContent className="p-6 text-sm text-muted-foreground">Nothing waiting for review.</CardContent>
+                    <CardContent className="p-6 text-sm text-muted-foreground">
+                        {runs.some(run => run.status === 'RUNNING')
+                            ? 'An import is still running. Its covenants appear here when it finishes.'
+                            : 'Nothing waiting for review.'}
+                    </CardContent>
                 </Card>
             )}
 

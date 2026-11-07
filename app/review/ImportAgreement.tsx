@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui/core'
@@ -7,6 +8,7 @@ import { Combobox } from '@/components/ui/Combobox'
 
 export type RunSummary = {
     id: string
+    facilityId: string
     facilityName: string
     sourceUrl: string | null
     sourceName: string | null
@@ -19,7 +21,12 @@ export type RunSummary = {
 
 const POLL_MS = 4000
 
-export default function ImportAgreement({ facilities, runs }: { facilities: { id: string, name: string, facilityReference: string }[], runs: RunSummary[] }) {
+export default function ImportAgreement({ facilities, runs, runTotal, showingAll }: {
+    facilities: { id: string, name: string, facilityReference: string }[]
+    runs: RunSummary[]
+    runTotal: number
+    showingAll: boolean
+}) {
     const router = useRouter()
     // No default: picking the facility is deliberate, so an import can't land on the wrong one.
     const [facilityId, setFacilityId] = useState('')
@@ -100,7 +107,7 @@ export default function ImportAgreement({ facilities, runs }: { facilities: { id
                         {runs.map((run) => (
                             <li key={run.id} className="flex flex-col gap-1 py-2 md:flex-row md:items-center md:justify-between">
                                 <div className="min-w-0">
-                                    <span className="font-medium">{run.facilityName}</span>
+                                    <Link href={`/facilities/${run.facilityId}`} className="font-medium hover:underline">{run.facilityName}</Link>
                                     <span className="text-muted-foreground"> · {run.createdAt.slice(0, 16).replace('T', ' ')} · </span>
                                     {run.sourceHref ? (
                                         <a href={run.sourceHref} target="_blank" rel="noreferrer" className="break-all text-muted-foreground hover:underline">
@@ -114,6 +121,14 @@ export default function ImportAgreement({ facilities, runs }: { facilities: { id
                             </li>
                         ))}
                     </ul>
+                )}
+                {runs.length < runTotal && !showingAll && (
+                    <Link href="/review?runs=all" scroll={false} className="text-sm font-medium text-primary hover:underline">
+                        Show all {runTotal} imports
+                    </Link>
+                )}
+                {showingAll && (
+                    <Link href="/review" scroll={false} className="text-sm font-medium text-primary hover:underline">Show recent only</Link>
                 )}
             </CardContent>
         </Card>
@@ -129,5 +144,7 @@ function RunStatus({ run }: { run: RunSummary }) {
         )
     }
     if (run.status === 'FAILED') return <span className="text-destructive">Failed: {run.error ?? 'unknown error'}</span>
+    // Finding nothing isn't a success: the agreement may need its covenants added by hand.
+    if (run.itemCount === 0) return <Badge variant="outline">No covenants found</Badge>
     return <Badge variant="success">{run.itemCount} covenant{run.itemCount === 1 ? '' : 's'} found</Badge>
 }
