@@ -95,3 +95,25 @@ async function createFacility(name: string, lenderOrgId: string, borrowerOrgId: 
     })
     return { ...facility, covenant, occurrence }
 }
+
+// A finished extraction run on the facility with one pending extracted covenant.
+export async function createExtractedItem(facilityId: string, overrides: Record<string, unknown> = {}) {
+    const run = await prisma.extractionRun.create({
+        data: { facilityId, sourceName: 'agreement.pdf', model: 'test', promptChars: 0, status: 'DONE' },
+    })
+    return prisma.extractedCovenant.create({
+        data: {
+            runId: run.id,
+            name: 'Maximum Total Leverage Ratio',
+            metric: 'total-leverage',
+            operator: '<=',
+            limit: 4.5,
+            quote: 'shall not permit the Total Leverage Ratio to exceed 4.50 to 1.00',
+            verified: true,
+            limitInQuote: true,
+            operatorCorrected: false,
+            directionConflict: false,
+            ...overrides,
+        },
+    })
+}
