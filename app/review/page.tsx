@@ -8,8 +8,9 @@ import { readStepDowns } from '@/lib/covenants/test'
 import { StepDownList } from '@/components/features/StepDowns'
 import { VerifiedBadge } from '@/components/features/VerifiedBadge'
 import { failStaleRuns } from '@/lib/extraction/store'
-import { Badge, Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
+import { Badge, Card, CardContent, CardTitle } from '@/components/ui/core'
 import ReviewActions from './ReviewActions'
+import ReviewItem from './ReviewItem'
 import ImportAgreement, { type RunSummary } from './ImportAgreement'
 
 export default async function ReviewPage() {
@@ -89,40 +90,40 @@ export default async function ReviewPage() {
                     </h2>
                     {items.map((item) => {
                         const flagged = !item.verified || item.directionConflict
+                        const stepDowns = readStepDowns(item.stepDowns)
                         return (
-                            <Card key={item.id} className={cn(flagged && 'border-destructive border-2')}>
-                                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-                                    <div className="space-y-1">
-                                        <CardTitle className="text-base">{item.name}</CardTitle>
-                                        <div className="text-sm">
-                                            <span className="font-mono font-semibold">{formatThreshold(item.operator, item.limit)}</span>
-                                            <span className="text-muted-foreground"> · {item.metric}</span>
-                                            {item.page !== null && <span className="text-muted-foreground"> · page {item.page}</span>}
-                                        </div>
-                                        <StepDownList operator={item.operator} stepDowns={readStepDowns(item.stepDowns)} />
-                                        <div className="flex flex-wrap gap-1 pt-1">
-                                            <VerifiedBadge verified={item.verified} />
-                                            {item.limitInQuote
-                                                ? <Badge variant="secondary">limit in quote</Badge>
-                                                : <Badge variant="warning">limit not in quote</Badge>}
-                                            {item.operatorCorrected && <Badge variant="warning">operator corrected</Badge>}
-                                            {item.directionConflict && <Badge variant="destructive">check direction</Badge>}
-                                        </div>
+                            <ReviewItem
+                                key={item.id}
+                                item={{ id: item.id, name: item.name, operator: item.operator, limit: item.limit, stepDowns }}
+                                flagged={flagged}
+                                summary={<>
+                                    <CardTitle className="text-base">{item.name}</CardTitle>
+                                    <div className="text-sm">
+                                        <span className="font-mono font-semibold">{formatThreshold(item.operator, item.limit)}</span>
+                                        <span className="text-muted-foreground"> · {item.metric}</span>
+                                        {item.page !== null && <span className="text-muted-foreground"> · page {item.page}</span>}
                                     </div>
-                                    <ReviewActions id={item.id} />
-                                </CardHeader>
-                                <CardContent className="space-y-2">
-                                    <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground whitespace-pre-line">
-                                        {item.quote}
-                                    </blockquote>
-                                    <p className="text-xs text-muted-foreground">
-                                        {item.run.sourceUrl
-                                            ? <a href={item.run.sourceUrl} className="hover:underline" target="_blank" rel="noreferrer">Source</a>
-                                            : <span>{item.run.sourceName ?? 'Uploaded agreement'}</span>}
-                                        {' · '}{item.run.model}{' · '}{item.run.createdAt.toISOString().slice(0, 10)}
-                                    </p>
-                                </CardContent>
-                            </Card>
+                                    <StepDownList operator={item.operator} stepDowns={stepDowns} />
+                                    <div className="flex flex-wrap gap-1 pt-1">
+                                        <VerifiedBadge verified={item.verified} />
+                                        {item.limitInQuote
+                                            ? <Badge variant="secondary">limit in quote</Badge>
+                                            : <Badge variant="warning">limit not in quote</Badge>}
+                                        {item.operatorCorrected && <Badge variant="warning">operator corrected</Badge>}
+                                        {item.directionConflict && <Badge variant="destructive">check direction</Badge>}
+                                    </div>
+                                </>}
+                            >
+                                <blockquote className="border-l-2 pl-3 text-sm italic text-muted-foreground whitespace-pre-line">
+                                    {item.quote}
+                                </blockquote>
+                                <p className="text-xs text-muted-foreground">
+                                    {item.run.sourceUrl
+                                        ? <a href={item.run.sourceUrl} className="hover:underline" target="_blank" rel="noreferrer">Source</a>
+                                        : <span>{item.run.sourceName ?? 'Uploaded agreement'}</span>}
+                                    {' · '}{item.run.model}{' · '}{item.run.createdAt.toISOString().slice(0, 10)}
+                                </p>
+                            </ReviewItem>
                         )
                     })}
                 </section>

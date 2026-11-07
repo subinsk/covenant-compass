@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMetricFormula, formatThreshold, requiredStatus, reviewActionSchema, reviewDecision, type ReviewableCovenant } from './review'
+import { formatMetricFormula, formatThreshold, requiredStatus, reviewActionSchema, reviewDecision, reviewEditsSchema, type ReviewableCovenant } from './review'
 
 const pending: ReviewableCovenant = {
     status: 'PENDING',
@@ -58,6 +58,28 @@ describe('reviewDecision', () => {
         expect(result.ok && result.covenant?.stepDowns).toEqual(stepDowns)
     })
 
+    it("applies the reviewer's edits over the extraction", () => {
+        const result = reviewDecision({ ...pending, stepDowns: [{ from: 'Q3 2027', limit: 5.25 }] }, 'approve', {
+            name: 'Total Net Leverage',
+            frequency: 'ANNUAL',
+            operator: '<',
+            limit: 5.5,
+            stepDowns: [{ from: '2027-09-30', limit: 5 }],
+        })
+        expect(result.ok && result.covenant).toMatchObject({
+            title: 'Total Net Leverage',
+            frequency: 'ANNUAL',
+            thresholdCondition: '< 5.5',
+            stepDowns: [{ from: '2027-09-30', limit: 5 }],
+        })
+    })
+
+    it('can clear step-downs, and keeps extracted values for fields not edited', () => {
+        const result = reviewDecision({ ...pending, stepDowns: [{ from: '2027-09-30', limit: 5 }] }, 'approve', { stepDowns: [], limit: 6 })
+        expect(result.ok && result.covenant).toMatchObject({ title: pending.name, frequency: 'QUARTERLY', thresholdCondition: '<= 6' })
+        expect(result.ok && result.covenant?.stepDowns).toBeUndefined()
+    })
+
     it('leaves metricFormula out when the extraction had no terms', () => {
         const result = reviewDecision({ ...pending, numerator: null, denominator: null }, 'approve')
         expect(result.ok && result.covenant?.metricFormula).toBeUndefined()
@@ -79,6 +101,20 @@ describe('reviewDecision', () => {
         expect(reviewDecision({ ...pending, status: 'APPROVED' }, 'restore')).toEqual({ ok: false, error: 'Only rejected items can be restored' })
         expect(requiredStatus('restore')).toBe('REJECTED')
         expect(requiredStatus('approve')).toBe('PENDING')
+    })
+})
+
+describe('reviewEditsSchema', () => {
+    it('accepts valid edits and rejects bad ones', () => {
+        expect(reviewEditsSchema.safeParse({ name: ' Leverage ', frequency: 'MONTHLY', operator: '>=', limit: 1.25 }).data)
+            .toEqual({ name: 'Leverage', frequency: 'MONTHLY', operator: '>=', limit: 1.25 })
+        expect(reviewEditsSchema.safeParse({}).success).toBe(true)
+        expect(reviewEditsSchema.safeParse({ name: ' ' }).success).toBe(false)
+        expect(reviewEditsSchema.safeParse({ frequency: 'EVENT_DRIVEN' }).success).toBe(false)
+        expect(reviewEditsSchema.safeParse({ operator: '=' }).success).toBe(false)
+        expect(reviewEditsSchema.safeParse({ limit: 0 }).success).toBe(false)
+        expect(reviewEditsSchema.safeParse({ stepDowns: [{ from: 'Q3 2027', limit: 4 }] }).success).toBe(false)
+        expect(reviewEditsSchema.safeParse({ stepDowns: [{ from: '2027-09-30', limit: 4 }] }).success).toBe(true)
     })
 })
 

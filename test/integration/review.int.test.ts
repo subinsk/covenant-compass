@@ -90,6 +90,29 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('reviewing extracted covenants (
         expect(audits.every(a => a.performedByUserId === f.sessions.bankA.userId)).toBe(true)
     })
 
+    it("approves with the reviewer's edits and audits what changed", async () => {
+        signInAs(f.sessions.bankA)
+        const item = await createExtractedItem(f.facilityA.id, { stepDowns: [{ from: 'Q3 2027', limit: 4 }] })
+        const edits = { frequency: 'ANNUAL', limit: 4.75, stepDowns: [{ from: '2027-09-30', limit: 4 }] }
+
+        const res = await review(item.id, { action: 'approve', edits })
+        expect(res.status).toBe(200)
+        const covenant = await prisma.covenant.findUniqueOrThrow({ where: { id: (await res.json()).covenantId } })
+        expect(covenant).toMatchObject({ title: item.name, frequency: 'ANNUAL', thresholdCondition: '<= 4.75', stepDowns: edits.stepDowns })
+        // The extraction keeps what the model found.
+        expect(await prisma.extractedCovenant.findUniqueOrThrow({ where: { id: item.id } })).toMatchObject({ limit: 4.5 })
+
+        const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: f.facilityA.id, action: 'UPDATE' } })
+        expect(audit.details).toMatchObject({ decision: 'approve', edits })
+    })
+
+    it('refuses invalid edits without approving', async () => {
+        signInAs(f.sessions.bankA)
+        const item = await createExtractedItem(f.facilityA.id)
+        expect((await review(item.id, { action: 'approve', edits: { stepDowns: [{ from: 'Q3 2027', limit: 4 }] } })).status).toBe(400)
+        expect((await prisma.extractedCovenant.findUniqueOrThrow({ where: { id: item.id } })).status).toBe('PENDING')
+    })
+
     it("can't review another lender's items", async () => {
         signInAs(f.sessions.bankB)
         const item = await createExtractedItem(f.facilityA.id)
