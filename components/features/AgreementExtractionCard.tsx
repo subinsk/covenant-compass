@@ -7,6 +7,7 @@ import { AlertTriangle, Check, FileSearch, Loader2, X } from 'lucide-react'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
 import { formatThreshold } from '@/lib/extraction/review'
 import type { AgreementRunView, PendingExtractedItem } from '@/lib/extraction/runs'
+import { StepDownList } from './StepDowns'
 
 const POLL_MS = 2000
 
@@ -183,6 +184,7 @@ function ItemRow({ item }: { item: PendingExtractedItem }) {
                         <span className="text-muted-foreground"> · {item.metric}</span>
                         {item.page !== null && <span className="text-muted-foreground"> · page {item.page}</span>}
                     </p>
+                    <StepDownList operator={item.operator} stepDowns={item.stepDowns} />
                 </div>
                 <div className="flex shrink-0 gap-2">
                     {decided ? (

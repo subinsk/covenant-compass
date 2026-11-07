@@ -1,12 +1,35 @@
+import { z } from 'zod'
+
 // Tests a covenant value against its limit on a given date, and measures how
 // far the borrower is from a breach.
 
 export type Operator = '<=' | '<' | '>=' | '>'
 
+export type StepDown = { from: string, limit: number }
+
 export type CovenantTerms = {
     operator: Operator
     limit: number
-    stepDowns?: { from: string, limit: number }[]
+    stepDowns?: StepDown[]
+}
+
+const stepDownsSchema = z.array(z.object({ from: z.string().trim().min(1), limit: z.number().positive() }))
+
+// Step-downs as stored in a Json column. Anything malformed reads as none.
+export function readStepDowns(json: unknown): StepDown[] {
+    const parsed = stepDownsSchema.safeParse(json)
+    return parsed.success ? parsed.data : []
+}
+
+// Step-downs whose start date can't be read. applicableLimit skips them, so the
+// earlier limit would keep applying after they start.
+export function undatedStepDowns(stepDowns: StepDown[]): StepDown[] {
+    return stepDowns.filter(step => parseFromDate(step.from) === null)
+}
+
+// The date an obligation is tested at: the end of its period, else its due date.
+export function testDate(occurrence: { periodEndDate: Date | string | null, dueDate: Date | string }): string {
+    return new Date(occurrence.periodEndDate ?? occurrence.dueDate).toISOString().slice(0, 10)
 }
 
 export type CovenantResult = {
@@ -71,12 +94,34 @@ export function parseThreshold(condition: string | null | undefined): { operator
     return { operator: match[1] as Operator, limit }
 }
 
-// Tests a reported value against a stored threshold condition. Headroom is the
+// Tests a reported value against a stored threshold condition, using the
+// step-down in force on asOf (YYYY-MM-DD) when there is one. Headroom is the
 // signed percent distance to the limit (negative means breach). Null when the
 // condition can't be read, so the caller can still store the value.
-export function evaluateThreshold(condition: string | null | undefined, value: number): { passed: boolean, headroom: number } | null {
+export function evaluateThreshold(
+    condition: string | null | undefined,
+    value: number,
+    stepDowns: StepDown[] = [],
+    asOf = '',
+): { passed: boolean, headroom: number } | null {
     const terms = parseThreshold(condition)
     if (!terms || !Number.isFinite(value)) return null
-    const result = testCovenant(terms, value, '')
+    const result = testCovenant({ ...terms, stepDowns }, value, asOf)
     return { passed: result.compliant, headroom: result.headroomPct }
+}
+
+// The threshold as it applies on asOf: '<= 4' once a step-down to 4 has started.
+// Returns the stored condition unchanged when no step-down applies yet.
+export function thresholdOn(condition: string | null | undefined, stepDowns: StepDown[], asOf: string): string | null {
+    const terms = parseThreshold(condition)
+    if (!terms) return condition || null
+    const limit = applicableLimit({ ...terms, stepDowns }, asOf)
+    return limit === terms.limit ? condition! : `${terms.operator} ${limit}`
+}
+
+// '<= 4.5' with one step-down -> '<= 4.5, then 4 from June 30, 2027'.
+export function describeThreshold(condition: string | null | undefined, stepDowns: StepDown[]): string | null {
+    if (!condition) return null
+    if (stepDowns.length === 0) return condition
+    return `${condition}, then ${stepDowns.map(step => `${step.limit} from ${step.from}`).join(', then ')}`
 }

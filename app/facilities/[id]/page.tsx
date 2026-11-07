@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import FacilityDetailView from '@/components/features/FacilityDetailView'
 import { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
 import { plainTestedValue } from '@/lib/occurrences/tested'
+import { readStepDowns } from '@/lib/covenants/test'
 import { notFound, redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
@@ -49,7 +50,7 @@ export default async function FacilityPage({ params, searchParams }: {
                 items: {
                     where: { status: 'PENDING' },
                     orderBy: { citationStart: 'asc' },
-                    select: { id: true, name: true, metric: true, operator: true, limit: true, page: true, verified: true, quote: true },
+                    select: { id: true, name: true, metric: true, operator: true, limit: true, stepDowns: true, page: true, verified: true, quote: true },
                 },
             },
         })
@@ -62,7 +63,7 @@ export default async function FacilityPage({ params, searchParams }: {
         sourceName: run.sourceName ?? run.sourceUrl?.split('/').pop() ?? null,
         itemCount: run._count.items,
         createdAt: run.createdAt.toISOString(),
-        items: run.items,
+        items: run.items.map(item => ({ ...item, stepDowns: readStepDowns(item.stepDowns) })),
     }))
 
     // Formatted here: Node and browsers can disagree on compact number output,

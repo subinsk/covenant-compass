@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateWithTrace, type Defs, type Formula } from '@/lib/formulas/formula'
-import { applicableLimit, evaluateThreshold, maxDenominatorDrop, parseFromDate, parseThreshold, testCovenant } from './test'
+import { applicableLimit, describeThreshold, evaluateThreshold, maxDenominatorDrop, parseFromDate, parseThreshold, readStepDowns, testCovenant, testDate, thresholdOn, undatedStepDowns } from './test'
 
 describe('testCovenant', () => {
     it('handles each operator, including the boundary', () => {
@@ -148,5 +148,37 @@ describe('evaluateThreshold', () => {
         expect(evaluateThreshold(null, 3)).toBeNull()
         expect(evaluateThreshold('no limit given', 3)).toBeNull()
         expect(evaluateThreshold('<= 4.0', Number.NaN)).toBeNull()
+    })
+})
+
+describe('step-downs on a stored threshold', () => {
+    const steps = [{ from: '2027-06-30', limit: 4 }, { from: 'June 30, 2028', limit: 3.5 }]
+
+    it('tests against the limit in force on the test date', () => {
+        // 4.2x passes the opening 4.5x but breaches the 4.0x step-down.
+        expect(evaluateThreshold('<= 4.5', 4.2, steps, '2027-03-31')?.passed).toBe(true)
+        expect(evaluateThreshold('<= 4.5', 4.2, steps, '2027-06-30')?.passed).toBe(false)
+        expect(evaluateThreshold('<= 4.5', 3.6, steps, '2028-09-30')?.passed).toBe(false)
+        expect(evaluateThreshold('<= 4.5', 4.2, steps)?.passed).toBe(true)
+    })
+
+    it('shows the threshold in force and the full schedule', () => {
+        expect(thresholdOn('<= 4.5', steps, '2027-03-31')).toBe('<= 4.5')
+        expect(thresholdOn('<= 4.5', steps, '2027-12-31')).toBe('<= 4')
+        expect(thresholdOn(null, steps, '2027-12-31')).toBeNull()
+        expect(describeThreshold('<= 4.5', steps)).toBe('<= 4.5, then 4 from 2027-06-30, then 3.5 from June 30, 2028')
+        expect(describeThreshold('<= 4.5', [])).toBe('<= 4.5')
+    })
+
+    it('reads stored step-downs and spots ones without a readable date', () => {
+        expect(readStepDowns(steps)).toEqual(steps)
+        expect(readStepDowns(null)).toEqual([])
+        expect(readStepDowns([{ from: '', limit: 4 }])).toEqual([])
+        expect(undatedStepDowns([...steps, { from: 'Q3 2027', limit: 3 }])).toEqual([{ from: 'Q3 2027', limit: 3 }])
+    })
+
+    it('tests at the period end, falling back to the due date', () => {
+        expect(testDate({ periodEndDate: new Date('2027-06-30T00:00:00Z'), dueDate: new Date('2027-08-14T00:00:00Z') })).toBe('2027-06-30')
+        expect(testDate({ periodEndDate: null, dueDate: '2027-08-14T00:00:00.000Z' })).toBe('2027-08-14')
     })
 })

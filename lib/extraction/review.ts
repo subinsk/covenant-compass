@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { ReviewStatus } from '@prisma/client'
 import { buildCovenantRequestBody } from '@/lib/covenants/new-covenant'
+import { readStepDowns } from '@/lib/covenants/test'
 import { createCovenantSchema, type CreateCovenantInput } from '@/lib/validation/covenant'
 
 export const reviewActionSchema = z.object({
@@ -14,6 +15,7 @@ export type ReviewableCovenant = {
     name: string
     operator: string
     limit: number
+    stepDowns: unknown // Json column: [{ from, limit }]
     numerator: string | null
     denominator: string | null
     quote: string
@@ -51,6 +53,12 @@ export function reviewDecision(item: ReviewableCovenant, action: ReviewAction): 
         metricFormula: formatMetricFormula(item.numerator, item.denominator),
         thresholdCondition: formatThreshold(item.operator, item.limit),
     })
-    const covenant = createCovenantSchema.parse({ ...body, description: item.quote })
+    const stepDowns = readStepDowns(item.stepDowns)
+    const covenant = createCovenantSchema.parse({
+        ...body,
+        description: item.quote,
+        // Carried over so tests after a step-down date use the lower limit.
+        ...(stepDowns.length > 0 && { stepDowns }),
+    })
     return { ok: true, status: 'APPROVED', covenant }
 }

@@ -218,6 +218,8 @@ model Covenant {
   importance         Importance
   metricFormula      String?
   thresholdCondition String?
+  // Later limits: [{ from, limit }], applied from their start date (lib/covenants/test.ts).
+  stepDowns          Json?
   active             Boolean    @default(true)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { Loader2 } from 'lucide-react'
 import { Badge, Button } from '@/components/ui/core'
-import { evaluateThreshold } from '@/lib/covenants/test'
+import { evaluateThreshold, readStepDowns, testDate, thresholdOn } from '@/lib/covenants/test'
 
 export const formatHeadroom = (headroom: number) => `${headroom >= 0 ? '+' : ''}${headroom.toFixed(1)}%`
 
@@ -23,7 +23,9 @@ export function TestedValueSection({ occurrence }: {
         testedValue: number | null
         testPassed: boolean | null
         testedAt: Date | string | null
-        covenant: { thresholdCondition: string | null }
+        periodEndDate: Date | string | null
+        dueDate: Date | string
+        covenant: { thresholdCondition: string | null; stepDowns: unknown }
     }
 }) {
     const router = useRouter()
@@ -31,8 +33,12 @@ export function TestedValueSection({ occurrence }: {
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const threshold = occurrence.covenant.thresholdCondition
-    const result = occurrence.testedValue === null ? null : evaluateThreshold(threshold, occurrence.testedValue)
+    // The limit in force at this period's end, so a step-down shows and is tested.
+    const stored = occurrence.covenant.thresholdCondition
+    const stepDowns = readStepDowns(occurrence.covenant.stepDowns)
+    const asOf = testDate(occurrence)
+    const threshold = thresholdOn(stored, stepDowns, asOf)
+    const result = occurrence.testedValue === null ? null : evaluateThreshold(stored, occurrence.testedValue, stepDowns, asOf)
     const number = Number(value)
     const valid = value.trim() !== '' && Number.isFinite(number)
 
@@ -63,7 +69,10 @@ export function TestedValueSection({ occurrence }: {
             <h3 className="font-medium">Financial test</h3>
             <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-muted-foreground">Threshold</span>
-                <span className="font-medium">{threshold || '—'}</span>
+                <span className="text-right font-medium">
+                    {threshold || '—'}
+                    {threshold !== stored && <span className="block text-xs font-normal text-muted-foreground">stepped down from {stored}</span>}
+                </span>
             </div>
             {occurrence.testedValue !== null && (
                 <div className="flex items-center justify-between gap-4 border-b pb-2">

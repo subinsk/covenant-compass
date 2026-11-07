@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility } from '@/lib/auth/access'
 import { recordAudit } from '@/lib/audit/record'
-import { evaluateThreshold } from '@/lib/covenants/test'
+import { evaluateThreshold, readStepDowns, testDate, thresholdOn } from '@/lib/covenants/test'
 import { ragAfterTest, recordTestSchema } from '@/lib/occurrences/tested'
 import { invalidInput } from '@/lib/validation/http'
 
@@ -19,8 +19,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const occurrence = await prisma.covenantOccurrence.findUnique({
         where: { id },
         select: {
-            id: true, status: true, dueDate: true, ragStatus: true, testedValue: true, testPassed: true,
-            covenant: { select: { type: true, thresholdCondition: true } },
+            id: true, status: true, dueDate: true, periodEndDate: true, ragStatus: true, testedValue: true, testPassed: true,
+            covenant: { select: { type: true, thresholdCondition: true, stepDowns: true } },
             facility: { select: { lenderOrgId: true, borrowerOrgId: true } },
         },
     })
@@ -35,8 +35,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!parsed.success) return invalidInput(parsed.error)
     const { value } = parsed.data
 
+    // Tested against the limit in force at the period end, so step-downs apply.
     // Null when the threshold can't be read: the value is still stored.
-    const result = evaluateThreshold(occurrence.covenant.thresholdCondition, value)
+    const stepDowns = readStepDowns(occurrence.covenant.stepDowns)
+    const asOf = testDate(occurrence)
+    const result = evaluateThreshold(occurrence.covenant.thresholdCondition, value, stepDowns, asOf)
     const now = new Date()
     const data = {
         testedValue: value,
@@ -58,7 +61,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
                 testedValue: value,
                 testPassed: data.testPassed,
                 headroom: result?.headroom ?? null,
-                thresholdCondition: occurrence.covenant.thresholdCondition,
+                thresholdCondition: thresholdOn(occurrence.covenant.thresholdCondition, stepDowns, asOf),
                 previousValue: occurrence.testedValue?.toNumber() ?? null,
                 previousRagStatus: occurrence.ragStatus,
                 ragStatus: data.ragStatus,

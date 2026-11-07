@@ -15,6 +15,7 @@ export const createCovenantSchema = z.object({
     importance: z.enum(Importance).default(Importance.MEDIUM),
     metricFormula: optionalText,
     thresholdCondition: optionalText,
+    stepDowns: z.array(z.object({ from: z.string().trim().min(1), limit: z.number().positive() })).optional(),
 })
 
 export type CreateCovenantInput = z.infer<typeof createCovenantSchema>

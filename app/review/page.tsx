@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
 import { formatThreshold } from '@/lib/extraction/review'
+import { readStepDowns } from '@/lib/covenants/test'
+import { StepDownList } from '@/components/features/StepDowns'
 import { failStaleRuns } from '@/lib/extraction/store'
 import { Badge, Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
 import ReviewActions from './ReviewActions'
@@ -87,6 +89,7 @@ export default async function ReviewPage() {
                                             <span className="text-muted-foreground"> · {item.metric}</span>
                                             {item.page !== null && <span className="text-muted-foreground"> · page {item.page}</span>}
                                         </div>
+                                        <StepDownList operator={item.operator} stepDowns={readStepDowns(item.stepDowns)} />
                                         <div className="flex flex-wrap gap-1 pt-1">
                                             {item.verified
                                                 ? <Badge variant="success">quote found in source</Badge>
