@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import type { SessionPayload } from '@/lib/auth/jwt'
 import * as reviewRoute from '@/app/api/extracted-covenants/[id]/route'
+import * as bulkApproveRoute from '@/app/api/extracted-covenants/approve/route'
 import { createExtractedItem, seedTwoTenants } from './fixtures'
 
 vi.mock('@/lib/auth/session', () => ({ getSession: vi.fn() }))
@@ -132,6 +133,31 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('reviewing extracted covenants (
         signInAs(f.sessions.bankA)
         const item = await createExtractedItem(f.facilityA.id, { name: f.facilityA.covenant.title.toUpperCase(), metric: 'other' })
         expect((await review(item.id, { action: 'approve' })).status).toBe(409)
+    })
+
+    it('bulk-approves only the clean items and says why the rest were skipped', async () => {
+        signInAs(f.sessions.bankA)
+        const clean = await createExtractedItem(f.facilityA.id)
+        const twin = await createExtractedItem(f.facilityA.id, { name: 'Total Leverage (again)' })
+        const unverified = await createExtractedItem(f.facilityA.id, { metric: 'interest-coverage', name: 'Interest Cover', verified: false })
+        const undated = await createExtractedItem(f.facilityA.id, { metric: 'fccr', name: 'FCCR', stepDowns: [{ from: 'Q3 2027', limit: 1.1 }] })
+        const otherLender = await createExtractedItem(f.facilityB.id, { metric: 'liquidity', name: 'Liquidity' })
+
+        const res = await bulkApproveRoute.POST(new Request('http://localhost/x', {
+            method: 'POST',
+            body: JSON.stringify({ ids: [clean.id, twin.id, unverified.id, undated.id, otherLender.id] }),
+        }))
+        expect(res.status).toBe(200)
+        const body = await res.json()
+        expect(body.approved).toEqual([clean.id])
+        const reasons = Object.fromEntries(body.skipped.map((s: { id: string, reason: string }) => [s.id, s.reason]))
+        expect(reasons[twin.id]).toMatch(/already has/)
+        expect(reasons[unverified.id]).toBe('Needs a closer look')
+        expect(reasons[undated.id]).toBe('Needs a closer look')
+        expect(reasons[otherLender.id]).toBe('Extracted covenant not found')
+
+        const statuses = await prisma.extractedCovenant.findMany({ where: { status: 'PENDING' }, select: { id: true } })
+        expect(statuses.map(s => s.id).sort()).toEqual([twin.id, unverified.id, undated.id, otherLender.id].sort())
     })
 
     it("can't review another lender's items", async () => {
