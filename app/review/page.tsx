@@ -13,6 +13,8 @@ import { failStaleRuns } from '@/lib/extraction/store'
 import { Badge, Card, CardContent, CardTitle } from '@/components/ui/core'
 import ReviewActions from './ReviewActions'
 import ReviewItem from './ReviewItem'
+import BulkApprove from './BulkApprove'
+import { approvableInBulk } from '@/lib/extraction/apply-review'
 import ImportAgreement, { type RunSummary } from './ImportAgreement'
 
 // Recent imports shown by default; ?runs=all shows up to RUNS_MAX.
@@ -106,10 +108,13 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
 
             {[...groups.values()].map(({ facility, items }) => (
                 <section key={facility.id} className="space-y-3">
-                    <h2 className="text-lg font-semibold">
-                        <Link href={`/facilities/${facility.id}`} className="hover:underline">{facility.name}</Link>
-                        <span className="ml-2 text-sm font-normal text-muted-foreground">{items.length} pending</span>
-                    </h2>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <h2 className="text-lg font-semibold">
+                            <Link href={`/facilities/${facility.id}`} className="hover:underline">{facility.name}</Link>
+                            <span className="ml-2 text-sm font-normal text-muted-foreground">{items.length} pending</span>
+                        </h2>
+                        <BulkApprove ids={items.filter(item => approvableInBulk(item) && !duplicateOf(item) && !pendingTwice(item)).map(item => item.id)} />
+                    </div>
                     {items.map((item) => {
                         const flagged = !item.verified || item.directionConflict
                         const stepDowns = readStepDowns(item.stepDowns)

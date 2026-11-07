@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
-import { canAccessFacility, isLender } from '@/lib/auth/access'
-import { recordAudit } from '@/lib/audit/record'
-import { existingCovenants, findDuplicate } from '@/lib/extraction/duplicates'
-import { requiredStatus, reviewActionSchema, reviewDecision } from '@/lib/extraction/review'
-import { generateScheduleForCovenant } from '@/lib/services/schedule-engine'
+import { isLender } from '@/lib/auth/access'
+import { applyReview } from '@/lib/extraction/apply-review'
+import { reviewActionSchema } from '@/lib/extraction/review'
 import { invalidInput } from '@/lib/validation/http'
 
-// PATCH /api/extracted-covenants/[id]  { action: 'approve' | 'reject' | 'restore' }
+// PATCH /api/extracted-covenants/[id]  { action: 'approve' | 'reject' | 'restore', edits?, allowDuplicate? }
 // Approving creates a Covenant on the run's facility and links it. Restoring puts a
 // rejected item back in the queue. Every decision is audited against the facility.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,72 +14,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!isLender(session)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const item = await prisma.extractedCovenant.findUnique({
-        where: { id },
-        include: { run: { select: { facilityId: true, facility: { select: { lenderOrgId: true, borrowerOrgId: true } } } } },
-    })
-    if (!item || !canAccessFacility(session, item.run.facility)) {
-        return NextResponse.json({ error: 'Extracted covenant not found' }, { status: 404 })
-    }
-
     const parsed = reviewActionSchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) return invalidInput(parsed.error)
 
-    const decision = reviewDecision(item, parsed.data.action, parsed.data.edits)
-    if (!decision.ok) return NextResponse.json({ error: decision.error }, { status: 409 })
-
-    // A second covenant for the same test would double the facility's obligations,
-    // so approving one needs an explicit go-ahead.
-    if (decision.covenant && !parsed.data.allowDuplicate) {
-        const existing = (await existingCovenants(prisma, [item.run.facilityId])).get(item.run.facilityId) ?? []
-        const duplicate = findDuplicate({ name: decision.covenant.title, metric: item.metric }, existing)
-        if (duplicate) {
-            return NextResponse.json(
-                { error: `This facility already has "${duplicate.title}".`, duplicate: { id: duplicate.id, title: duplicate.title } },
-                { status: 409 },
-            )
-        }
-    }
-
-    // Claim the item only while it is still pending, so two concurrent approvals can't both create a covenant.
-    // The covenant and its schedule are built in the same transaction: if the schedule fails,
-    // nothing is approved and the item stays pending, so the reviewer can simply try again.
-    const result = await prisma.$transaction(async (tx) => {
-        const restoring = parsed.data.action === 'restore'
-        const claimed = await tx.extractedCovenant.updateMany({
-            where: { id, status: requiredStatus(parsed.data.action) },
-            data: restoring
-                ? { status: decision.status, reviewedByUserId: null, reviewedAt: null }
-                : { status: decision.status, reviewedByUserId: session.userId, reviewedAt: new Date() },
-        })
-        if (claimed.count === 0) return null
-        const covenant = decision.covenant
-            ? await tx.covenant.create({ data: { ...decision.covenant, facilityId: item.run.facilityId, active: true } })
-            : null
-        if (covenant) {
-            await tx.extractedCovenant.update({ where: { id }, data: { covenantId: covenant.id } })
-            await generateScheduleForCovenant(covenant.id, tx)
-        }
-        await recordAudit(tx, {
-            entityType: 'FACILITY',
-            entityId: item.run.facilityId,
-            action: 'UPDATE',
-            userId: session.userId,
-            details: {
-                kind: 'review', decision: parsed.data.action, name: covenant?.title ?? item.name, extractedCovenantId: id, covenantId: covenant?.id ?? null,
-                // What the reviewer changed from the extraction, if anything.
-                ...(parsed.data.action === 'approve' && parsed.data.edits && Object.keys(parsed.data.edits).length > 0 && { edits: parsed.data.edits }),
-            },
-        })
-        return { covenant }
-    }).catch((e: unknown) => {
-        console.error('Review failed', e)
-        return 'failed' as const
-    })
-    if (result === 'failed') {
-        return NextResponse.json({ error: "Couldn't create the covenant's schedule, so nothing was saved. Try again." }, { status: 500 })
-    }
-    if (!result) return NextResponse.json({ error: 'Already reviewed' }, { status: 409 })
-
-    return NextResponse.json({ status: decision.status, covenantId: result.covenant?.id ?? null })
+    const outcome = await applyReview(session, id, parsed.data)
+    return NextResponse.json(outcome.body, { status: outcome.status })
 }
