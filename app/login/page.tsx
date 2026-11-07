@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Input, Card, CardHeader, CardTitle, CardContent } from '@/components/ui/core'
-import { Lock } from 'lucide-react'
+import { LogoMark } from '@/components/layout/Logo'
 
 export default function LoginPage() {
     const router = useRouter()
@@ -42,11 +42,9 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center bg-muted/20">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-4 text-primary">
-                        <Lock className="w-6 h-6" />
-                    </div>
+                    <LogoMark className="mx-auto w-12 h-12 mb-4" />
                     <CardTitle className="text-2xl">Welcome Back</CardTitle>
-                    <p className="text-sm text-muted-foreground">Sign in to CovenantCompass</p>
+                    <p className="text-sm text-muted-foreground">Sign in to Covenant Compass</p>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleLogin} className="space-y-4">

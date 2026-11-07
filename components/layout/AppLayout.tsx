@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/components/ui/core'
 import { NotificationBell } from './NotificationBell'
+import { Logo, LogoMark } from './Logo'
 
 export default function AppLayout({ children, isBorrower }: { children: React.ReactNode; isBorrower: boolean }) {
     const pathname = usePathname()
@@ -40,7 +41,9 @@ export default function AppLayout({ children, isBorrower }: { children: React.Re
             {/* Sidebar */}
             <aside className="w-64 border-r bg-card hidden md:flex flex-col">
                 <div className="p-6 border-b">
-                    <h1 className="text-xl font-bold text-primary tracking-tight">CovenantCompass</h1>
+                    <Link href={isBorrower ? '/portal' : '/'} aria-label="Covenant Compass home">
+                        <Logo />
+                    </Link>
                 </div>
                 <nav className="flex-1 p-4 space-y-1">
                     {navItems.map((item) => {
@@ -78,7 +81,11 @@ export default function AppLayout({ children, isBorrower }: { children: React.Re
             <div className="flex-1 flex flex-col">
                 {/* Header */}
                 {/* Pages show their own title, so the header only holds actions */}
-                <header className="h-16 border-b bg-card flex items-center justify-end px-6 sticky top-0 z-10 w-full">
+                <header className="h-16 border-b bg-card flex items-center justify-between md:justify-end px-6 sticky top-0 z-10 w-full">
+                    {/* The sidebar is hidden on small screens, so show the mark here instead */}
+                    <Link href={isBorrower ? '/portal' : '/'} aria-label="Covenant Compass home" className="md:hidden">
+                        <LogoMark />
+                    </Link>
                     <div className="flex items-center gap-4">
                         <NotificationBell />
                         <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-sm font-bold">
