@@ -10,11 +10,27 @@ export function normalizeTitle(title: string): string {
     return title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-// The facility's covenant this one would duplicate: same metric (known when the covenant
-// was approved from an extraction) or the same title. Null when there's none.
+// Words that qualify a covenant title without changing which test it is.
+const FILLER = new Set(['maximum', 'minimum', 'max', 'min', 'ratio', 'the', 'of', 'covenant', 'consolidated'])
+
+function keyWords(title: string): Set<string> {
+    return new Set(normalizeTitle(title).split(' ').filter(word => word && !FILLER.has(word)))
+}
+
+// True when every key word of one title is in the other: 'Leverage Ratio' and
+// 'Maximum Total Net Leverage Ratio', but not 'Interest Coverage' and 'Fixed Charge Coverage'.
+export function titlesOverlap(a: string, b: string): boolean {
+    const [x, y] = [keyWords(a), keyWords(b)]
+    if (x.size === 0 || y.size === 0) return normalizeTitle(a) === normalizeTitle(b)
+    const within = (small: Set<string>, big: Set<string>) => [...small].every(word => big.has(word))
+    return within(x, y) || within(y, x)
+}
+
+// The facility's covenant this one likely duplicates: same metric (known when the covenant was
+// approved from an extraction), or overlapping titles (the only clue for covenants added by hand).
+// A heuristic for a warning, not a guarantee. Null when there's no match.
 export function findDuplicate(candidate: { name: string, metric: string }, existing: ExistingCovenant[]): ExistingCovenant | null {
-    const title = normalizeTitle(candidate.name)
-    return existing.find(c => (c.metric !== null && c.metric === candidate.metric) || normalizeTitle(c.title) === title) ?? null
+    return existing.find(c => (c.metric !== null && c.metric === candidate.metric) || titlesOverlap(c.title, candidate.name)) ?? null
 }
 
 type Db = PrismaClient | Prisma.TransactionClient
