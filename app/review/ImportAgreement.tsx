@@ -10,6 +10,7 @@ export type RunSummary = {
     facilityName: string
     sourceUrl: string | null
     sourceName: string | null
+    sourceHref: string | null
     status: 'RUNNING' | 'DONE' | 'FAILED'
     error: string | null
     itemCount: number
@@ -101,9 +102,9 @@ export default function ImportAgreement({ facilities, runs }: { facilities: { id
                                 <div className="min-w-0">
                                     <span className="font-medium">{run.facilityName}</span>
                                     <span className="text-muted-foreground"> · {run.createdAt.slice(0, 16).replace('T', ' ')} · </span>
-                                    {run.sourceUrl ? (
-                                        <a href={run.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-muted-foreground hover:underline">
-                                            {run.sourceUrl.split('/').pop()}
+                                    {run.sourceHref ? (
+                                        <a href={run.sourceHref} target="_blank" rel="noreferrer" className="break-all text-muted-foreground hover:underline">
+                                            {run.sourceName ?? run.sourceUrl?.split('/').pop()}
                                         </a>
                                     ) : (
                                         <span className="break-all text-muted-foreground">{run.sourceName ?? 'Uploaded agreement'}</span>

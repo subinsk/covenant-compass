@@ -7,7 +7,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { canAccessFacility, isLender } from '@/lib/auth/access'
 import { ACCEPTED_EXTENSIONS, MAX_UPLOAD_BYTES } from '@/lib/agreements/upload'
-import { agreementRunsWhere, type AgreementRunView } from '@/lib/extraction/runs'
+import { agreementRunsWhere, type AgreementRunView, agreementHref } from '@/lib/extraction/runs'
 import { failStaleRuns } from '@/lib/extraction/store'
 
 export default async function FacilityPage({ params, searchParams }: {
@@ -45,7 +45,7 @@ export default async function FacilityPage({ params, searchParams }: {
             where: agreementRunsWhere(facility.id, now),
             orderBy: { createdAt: 'desc' },
             select: {
-                id: true, status: true, stage: true, error: true, sourceName: true, sourceUrl: true, createdAt: true,
+                id: true, status: true, stage: true, error: true, sourceName: true, sourceUrl: true, fileKey: true, createdAt: true,
                 _count: { select: { items: true } },
                 items: {
                     where: { status: 'PENDING' },
@@ -61,6 +61,7 @@ export default async function FacilityPage({ params, searchParams }: {
         stage: run.stage,
         error: run.error,
         sourceName: run.sourceName ?? run.sourceUrl?.split('/').pop() ?? null,
+        sourceHref: agreementHref(run),
         itemCount: run._count.items,
         createdAt: run.createdAt.toISOString(),
         items: run.items.map(item => ({ ...item, stepDowns: readStepDowns(item.stepDowns) })),

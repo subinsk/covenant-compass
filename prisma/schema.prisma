@@ -318,6 +318,8 @@ model ExtractionRun {
   // EDGAR imports have a sourceUrl; uploads have a sourceName (the file name)
   sourceUrl       String?
   sourceName      String?
+  // Storage key of the uploaded file (lib/storage/files.ts), so reviewers can check quotes against it.
+  fileKey         String?
   model           String
   promptChars     Int
   status          ExtractionStatus @default(DONE)
