@@ -113,6 +113,27 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('reviewing extracted covenants (
         expect((await prisma.extractedCovenant.findUniqueOrThrow({ where: { id: item.id } })).status).toBe('PENDING')
     })
 
+    it('refuses a duplicate covenant unless the reviewer confirms it', async () => {
+        signInAs(f.sessions.bankA)
+        // Same metric as a covenant approved from an earlier import, under another name.
+        const first = await createExtractedItem(f.facilityA.id)
+        expect((await review(first.id, { action: 'approve' })).status).toBe(200)
+        const again = await createExtractedItem(f.facilityA.id, { name: 'Total Leverage Ratio' })
+
+        const refused = await review(again.id, { action: 'approve' })
+        expect(refused.status).toBe(409)
+        expect((await refused.json()).duplicate.title).toBe(first.name)
+        expect((await prisma.extractedCovenant.findUniqueOrThrow({ where: { id: again.id } })).status).toBe('PENDING')
+
+        expect((await review(again.id, { action: 'approve', allowDuplicate: true })).status).toBe(200)
+    })
+
+    it('treats a covenant added by hand with the same title as a duplicate', async () => {
+        signInAs(f.sessions.bankA)
+        const item = await createExtractedItem(f.facilityA.id, { name: f.facilityA.covenant.title.toUpperCase(), metric: 'other' })
+        expect((await review(item.id, { action: 'approve' })).status).toBe(409)
+    })
+
     it("can't review another lender's items", async () => {
         signInAs(f.sessions.bankB)
         const item = await createExtractedItem(f.facilityA.id)

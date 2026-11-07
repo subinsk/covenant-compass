@@ -22,9 +22,11 @@ type StepRow = { from: string, limit: string, original?: string }
 
 // One pending extracted covenant: approve or reject as extracted, or edit first.
 // summary is the server-rendered heading (name, threshold, badges); children the quote and source.
-export default function ReviewItem({ item, flagged, summary, children }: {
+export default function ReviewItem({ item, flagged, duplicateOf, summary, children }: {
     item: Item
     flagged: boolean
+    // Title of the facility covenant this one matches; approving needs a second click.
+    duplicateOf: string | null
     summary: React.ReactNode
     children: React.ReactNode
 }) {
@@ -32,6 +34,8 @@ export default function ReviewItem({ item, flagged, summary, children }: {
     const [editing, setEditing] = useState(false)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    // Set once the reviewer has been told about a duplicate and can approve anyway.
+    const [confirmDuplicate, setConfirmDuplicate] = useState(false)
 
     const [name, setName] = useState(item.name)
     const [frequency, setFrequency] = useState<string>('QUARTERLY')
@@ -55,7 +59,7 @@ export default function ReviewItem({ item, flagged, summary, children }: {
         return edits as ReviewEdits
     }
 
-    async function send(action: 'approve' | 'reject') {
+    async function send(action: 'approve' | 'reject', allowDuplicate = false) {
         let edits: ReviewEdits | undefined
         if (action === 'approve' && editing) {
             const parsed = reviewEditsSchema.safeParse(changedEdits())
@@ -71,10 +75,11 @@ export default function ReviewItem({ item, flagged, summary, children }: {
             const res = await fetch(`/api/extracted-covenants/${item.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, edits }),
+                body: JSON.stringify({ action, edits, allowDuplicate }),
             })
             if (!res.ok) {
                 const body = await res.json().catch(() => null)
+                if (res.status === 409 && body?.duplicate) setConfirmDuplicate(true)
                 setError(body?.error ?? `Request failed (${res.status})`)
                 return
             }
@@ -98,7 +103,17 @@ export default function ReviewItem({ item, flagged, summary, children }: {
                     <Button variant="outline" size="sm" disabled={busy} onClick={() => { setEditing(e => !e); setError(null) }}>
                         {editing ? 'Cancel edit' : 'Edit'}
                     </Button>
-                    <Button size="sm" disabled={busy} onClick={() => send('approve')}>{editing ? 'Approve with changes' : 'Approve'}</Button>
+                    {confirmDuplicate || duplicateOf ? (
+                        <Button
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => (confirmDuplicate ? send('approve', true) : (setConfirmDuplicate(true), setError(`This facility already has "${duplicateOf}". Approving adds a second covenant with its own obligations.`)))}
+                        >
+                            {confirmDuplicate ? 'Approve anyway' : 'Approve'}
+                        </Button>
+                    ) : (
+                        <Button size="sm" disabled={busy} onClick={() => send('approve')}>{editing ? 'Approve with changes' : 'Approve'}</Button>
+                    )}
                 </div>
             </CardHeader>
             <CardContent className="space-y-3">
