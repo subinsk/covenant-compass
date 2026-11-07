@@ -76,10 +76,10 @@ describe.skipIf(!process.env.DATABASE_URL_TEST)('uploaded agreements are stored 
 
     it('removes the stored file when the run cannot be created', async () => {
         signInAs(f.sessions.bankA)
-        const runId = '00000000-0000-4000-8000-000000000001'
-        vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce(runId)
-        // Both spies only replace one call; later calls go through to the real functions.
-        vi.spyOn(prisma.extractionRun, 'create').mockRejectedValueOnce(new Error('db down'))
+        // Reusing an existing run's id makes the insert fail on the primary key.
+        const existing = await prisma.extractionRun.create({ data: { facilityId: f.facilityA.id, sourceName: 'old.pdf', model: 'm', promptChars: 0 } })
+        const runId = existing.id
+        vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce(runId as ReturnType<typeof crypto.randomUUID>)
 
         const form = new FormData()
         form.append('file', new File(['Leverage Ratio not to exceed 3.50:1.00.'], 'Agreement.txt'))
