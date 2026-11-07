@@ -7,6 +7,13 @@ import { existingCovenants, findDuplicate } from '@/lib/extraction/duplicates'
 import { requiredStatus, reviewDecision, type ReviewAction, type ReviewEdits } from '@/lib/extraction/review'
 import { generateScheduleForCovenant } from '@/lib/services/schedule-engine'
 
+// Said when the transaction fails. Nothing was saved in any case, so trying again is safe.
+const REVIEW_FAILED: Record<ReviewAction, string> = {
+    approve: "Couldn't create the covenant and its schedule, so nothing was saved. Try again.",
+    reject: "Couldn't save the rejection. Try again.",
+    restore: "Couldn't restore the item. Try again.",
+}
+
 export type ReviewRequest = { action: ReviewAction, edits?: ReviewEdits, allowDuplicate?: boolean }
 
 // What the route sends back: an HTTP status and a JSON body.
@@ -75,9 +82,7 @@ export async function applyReview(session: SessionPayload, id: string, request: 
         console.error('Review failed', e)
         return 'failed' as const
     })
-    if (result === 'failed') {
-        return { status: 500, body: { error: "Couldn't create the covenant's schedule, so nothing was saved. Try again." } }
-    }
+    if (result === 'failed') return { status: 500, body: { error: REVIEW_FAILED[request.action] } }
     if (!result) return { status: 409, body: { error: 'Already reviewed' } }
 
     return { status: 200, body: { status: decision.status, covenantId: result.covenant?.id ?? null } }
