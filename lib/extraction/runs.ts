@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import type { StepDown } from '@/lib/covenants/test'
 
 // Agreement extraction runs shown on a facility page, as plain props for the client.
 
@@ -8,6 +9,7 @@ export type PendingExtractedItem = {
     metric: string
     operator: string
     limit: number
+    stepDowns: StepDown[]
     page: number | null
     verified: boolean
     quote: string

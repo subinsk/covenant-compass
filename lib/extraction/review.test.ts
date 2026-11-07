@@ -6,6 +6,7 @@ const pending: ReviewableCovenant = {
     name: 'Maximum Total Net Leverage Ratio',
     operator: '<=',
     limit: 5.75,
+    stepDowns: null,
     numerator: 'Consolidated Total Net Debt',
     denominator: 'Consolidated EBITDA',
     quote: 'shall not permit the Total Net Leverage Ratio to exceed 5.75 to 1.00',
@@ -49,6 +50,12 @@ describe('reviewDecision', () => {
                 description: pending.quote,
             },
         })
+    })
+
+    it('carries step-downs onto the covenant', () => {
+        const stepDowns = [{ from: 'June 30, 2027', limit: 5.25 }]
+        const result = reviewDecision({ ...pending, stepDowns }, 'approve')
+        expect(result.ok && result.covenant?.stepDowns).toEqual(stepDowns)
     })
 
     it('leaves metricFormula out when the extraction had no terms', () => {

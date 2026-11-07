@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { testDate } from '@/lib/covenants/test'
 import type { OccurrenceStatus, Prisma, RagStatus } from '@prisma/client'
 import { openState } from './transitions'
 
@@ -28,7 +29,7 @@ export function plainTestedValue<T extends { testedValue: Prisma.Decimal | null 
     return { ...row, testedValue: row.testedValue === null ? null : row.testedValue.toNumber() }
 }
 
-type TrendPoint = { value: number; passed: boolean | null }
+type TrendPoint = { value: number; passed: boolean | null; date: string }
 
 // The last few tested values per covenant, oldest first, for a small trend.
 export function testedTrend(
@@ -39,7 +40,7 @@ export function testedTrend(
     const tested = occurrences.filter(o => o.testedValue !== null).sort((a, b) => time(a) - time(b))
     const trend = new Map<string, TrendPoint[]>()
     for (const o of tested) {
-        const points = [...(trend.get(o.covenantId) ?? []), { value: o.testedValue!, passed: o.testPassed }]
+        const points = [...(trend.get(o.covenantId) ?? []), { value: o.testedValue!, passed: o.testPassed, date: testDate(o) }]
         trend.set(o.covenantId, points.slice(-count))
     }
     return trend

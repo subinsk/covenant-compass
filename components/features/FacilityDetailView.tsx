@@ -17,6 +17,7 @@ import { facilityFormFrom } from '@/lib/facilities/new-facility'
 import { OccurrenceDetails } from './OccurrenceDetails'
 import { TestBadge } from './TestedValue'
 import { FinancialTestsCard } from './FinancialTestsCard'
+import { describeThreshold, readStepDowns } from '@/lib/covenants/test'
 import type { Prisma } from '@prisma/client'
 import { formatPeriod } from '@/lib/format/period'
 import type { occurrenceDocumentsSelect } from '@/lib/occurrences/documents'
@@ -388,7 +389,7 @@ export default function FacilityDetailView({ facility, initialTab, canManage, no
                                                         {cov.title}
                                                     </button>
                                                     <p className="truncate text-xs text-muted-foreground">
-                                                        {cov.thresholdCondition || cov.description || cov.category || '—'}
+                                                        {describeThreshold(cov.thresholdCondition, readStepDowns(cov.stepDowns)) || cov.description || cov.category || '—'}
                                                         {!cov.active && ' · inactive'}
                                                     </p>
                                                 </td>

@@ -1,13 +1,13 @@
 import { Activity } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, cn } from '@/components/ui/core'
-import { evaluateThreshold } from '@/lib/covenants/test'
+import { describeThreshold, evaluateThreshold, readStepDowns } from '@/lib/covenants/test'
 import { testedTrend } from '@/lib/occurrences/tested'
 import { TestBadge, formatHeadroom } from './TestedValue'
 
 // Facility overview: for each financial covenant, the latest tested value and
 // the last few values before it.
 export function FinancialTestsCard({ covenants, occurrences, onShowSchedule }: {
-    covenants: { id: string; title: string; type: string; thresholdCondition: string | null }[]
+    covenants: { id: string; title: string; type: string; thresholdCondition: string | null; stepDowns: unknown }[]
     occurrences: Parameters<typeof testedTrend>[0]
     onShowSchedule: (covenantId: string) => void
 }) {
@@ -28,7 +28,8 @@ export function FinancialTestsCard({ covenants, occurrences, onShowSchedule }: {
                     {financial.map(cov => {
                         const points = trend.get(cov.id) ?? []
                         const latest = points.at(-1)
-                        const result = latest && evaluateThreshold(cov.thresholdCondition, latest.value)
+                        const stepDowns = readStepDowns(cov.stepDowns)
+                        const result = latest && evaluateThreshold(cov.thresholdCondition, latest.value, stepDowns, latest.date)
                         return (
                             <li key={cov.id}>
                                 <button
@@ -45,7 +46,7 @@ export function FinancialTestsCard({ covenants, occurrences, onShowSchedule }: {
                                         ) : <span className="shrink-0 text-xs text-muted-foreground">Not tested</span>}
                                     </div>
                                     <div className="flex justify-between gap-2 text-xs text-muted-foreground">
-                                        <span>{cov.thresholdCondition || 'No threshold'}{result && ` · ${formatHeadroom(result.headroom)}`}</span>
+                                        <span>{describeThreshold(cov.thresholdCondition, stepDowns) || 'No threshold'}{result && ` · ${formatHeadroom(result.headroom)}`}</span>
                                         {points.length > 1 && (
                                             <span className="tabular-nums" title="Last tested values, oldest first">
                                                 {points.map((p, i) => (
