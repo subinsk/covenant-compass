@@ -25,7 +25,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
                             </div>
                             <CardTitle className="text-2xl">Join {user.organization.name}</CardTitle>
                             <p className="text-sm text-muted-foreground">
-                                Set up your CovenantCompass account for <span className="font-medium text-foreground">{user.email}</span>.
+                                Set up your Covenant Compass account for <span className="font-medium text-foreground">{user.email}</span>.
                             </p>
                         </CardHeader>
                         <CardContent>

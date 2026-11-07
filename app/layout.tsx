@@ -7,7 +7,7 @@ import { getSession } from "@/lib/auth/session";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Covenant & Compliance Calendar Hub",
+  title: "Covenant Compass",
   description: "Monitor loan covenants and compliance obligations.",
 };
 
