@@ -8,6 +8,8 @@ import { agreementFileError, formatBytes } from '@/lib/agreements/upload-check'
 import { extractCovenants } from '@/lib/extraction/extract'
 import { extractionConfigError, runExtraction } from '@/lib/extraction/import'
 import { completeRun, failRun, findActiveRun, RUN_IN_PROGRESS_ERROR, setRunStage } from '@/lib/extraction/store'
+import { storageKey } from '@/lib/documents/upload'
+import { saveFile } from '@/lib/storage/files'
 
 // Seconds the platform keeps the function alive, including the extraction run after the response.
 export const maxDuration = 300
@@ -54,10 +56,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ fac
     const bytes = new Uint8Array(await file.arrayBuffer())
     const fileName = file.name
 
+    // Keep the agreement, so reviewers can check the extracted quotes against it.
+    const runId = crypto.randomUUID()
+    const fileKey = storageKey(runId, fileName)
+    try {
+        await saveFile(fileKey, bytes)
+    } catch (e) {
+        console.error('Saving the agreement failed', e)
+        return NextResponse.json({ error: "Couldn't store the file. Try again." }, { status: 500 })
+    }
+
     const run = await prisma.extractionRun.create({
         data: {
+            id: runId,
             facilityId,
             sourceName: fileName,
+            fileKey,
             model: process.env.LLM_MODEL!,
             promptChars: 0,
             status: 'RUNNING',

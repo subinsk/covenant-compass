@@ -21,6 +21,8 @@ export type AgreementRunView = {
     stage: string | null
     error: string | null
     sourceName: string | null
+    // Where to read the agreement: the stored upload or the EDGAR filing.
+    sourceHref: string | null
     itemCount: number
     createdAt: string
     items: PendingExtractedItem[]
@@ -47,5 +49,11 @@ export function agreementRunsWhere(facilityId: string, now: Date): Prisma.Extrac
 
 // What the upload endpoint returns (the new run), as the card's starting state.
 export function startedRunView(run: { id: string, status: AgreementRunView['status'], stage: string | null, sourceName: string | null, createdAt: string }): AgreementRunView {
-    return { id: run.id, status: run.status, stage: run.stage, error: null, sourceName: run.sourceName, itemCount: 0, createdAt: run.createdAt, items: [] }
+    return { id: run.id, status: run.status, stage: run.stage, error: null, sourceName: run.sourceName, sourceHref: null, itemCount: 0, createdAt: run.createdAt, items: [] }
+}
+
+// Link to a run's agreement: the stored upload when there is one, else the EDGAR URL.
+export function agreementHref(run: { id: string, fileKey: string | null, sourceUrl: string | null }): string | null {
+    if (run.fileKey) return `/api/extraction-runs/${run.id}/file`
+    return run.sourceUrl
 }

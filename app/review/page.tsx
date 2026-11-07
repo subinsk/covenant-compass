@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth/session'
 import { facilityScope, isLender } from '@/lib/auth/access'
 import { formatThreshold } from '@/lib/extraction/review'
+import { agreementHref } from '@/lib/extraction/runs'
 import { existingCovenants, findDuplicate } from '@/lib/extraction/duplicates'
 import { readStepDowns } from '@/lib/covenants/test'
 import { StepDownList } from '@/components/features/StepDowns'
@@ -37,6 +38,7 @@ export default async function ReviewPage() {
         facilityName: run.facility.name,
         sourceUrl: run.sourceUrl,
         sourceName: run.sourceName,
+        sourceHref: agreementHref(run),
         status: run.status,
         error: run.error,
         itemCount: run._count.items,
@@ -46,7 +48,7 @@ export default async function ReviewPage() {
     const items = await prisma.extractedCovenant.findMany({
         where: { status: 'PENDING', run: { facility: facilityScope(session) } },
         orderBy: [{ run: { createdAt: 'desc' } }, { citationStart: 'asc' }],
-        include: { run: { select: { sourceUrl: true, sourceName: true, model: true, createdAt: true, facility: { select: { id: true, name: true } } } } },
+        include: { run: { select: { id: true, sourceUrl: true, sourceName: true, fileKey: true, model: true, createdAt: true, facility: { select: { id: true, name: true } } } } },
     })
 
     // Covenants each item would duplicate, and items extracted twice (e.g. the same agreement imported again).
@@ -129,9 +131,9 @@ export default async function ReviewPage() {
                                     {item.quote}
                                 </blockquote>
                                 <p className="text-xs text-muted-foreground">
-                                    {item.run.sourceUrl
-                                        ? <a href={item.run.sourceUrl} className="hover:underline" target="_blank" rel="noreferrer">Source</a>
-                                        : <span>{item.run.sourceName ?? 'Uploaded agreement'}</span>}
+                                    {agreementHref(item.run)
+                                        ? <a href={agreementHref(item.run)!} className="font-medium text-primary hover:underline" target="_blank" rel="noreferrer">View agreement{item.run.sourceName ? ` (${item.run.sourceName})` : ''}</a>
+                                        : <span>{item.run.sourceName ?? 'Uploaded agreement'} (not stored)</span>}
                                     {' · '}{item.run.model}{' · '}{item.run.createdAt.toISOString().slice(0, 10)}
                                 </p>
                             </ReviewItem>

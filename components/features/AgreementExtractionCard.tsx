@@ -115,11 +115,14 @@ function RunningRun({ run }: { run: AgreementRunView }) {
 }
 
 function DoneRun({ run }: { run: AgreementRunView }) {
-    const source = run.sourceName ?? 'the agreement'
+    const name = run.sourceName ?? 'the agreement'
+    const source = run.sourceHref
+        ? <a href={run.sourceHref} target="_blank" rel="noreferrer" className="font-medium text-foreground underline-offset-2 hover:underline">{name}</a>
+        : <span className="font-medium text-foreground">{name}</span>
     if (run.itemCount === 0) {
         return (
             <p className="text-sm text-muted-foreground">
-                No financial covenants found in <span className="font-medium text-foreground">{source}</span>.
+                No financial covenants found in {source}.
                 Add covenants by pasting the clause instead.
             </p>
         )
