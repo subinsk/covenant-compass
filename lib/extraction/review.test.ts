@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMetricFormula, formatThreshold, requiredStatus, reviewActionSchema, reviewDecision, reviewEditsSchema, type ReviewableCovenant } from './review'
+import { UNDATED_STEP_DOWN_ERROR, formatMetricFormula, formatThreshold, requiredStatus, reviewActionSchema, reviewDecision, reviewEditsSchema, type ReviewableCovenant } from './review'
 
 const pending: ReviewableCovenant = {
     status: 'PENDING',
@@ -78,6 +78,14 @@ describe('reviewDecision', () => {
         const result = reviewDecision({ ...pending, stepDowns: [{ from: '2027-09-30', limit: 5 }] }, 'approve', { stepDowns: [], limit: 6 })
         expect(result.ok && result.covenant).toMatchObject({ title: pending.name, frequency: 'QUARTERLY', thresholdCondition: '<= 6' })
         expect(result.ok && result.covenant?.stepDowns).toBeUndefined()
+    })
+
+    it('refuses to approve a step-down without a usable date, unless the edits date it', () => {
+        const undated = { ...pending, stepDowns: [{ from: 'Q3 2027', limit: 5.25 }] }
+        expect(reviewDecision(undated, 'approve')).toEqual({ ok: false, error: UNDATED_STEP_DOWN_ERROR })
+        expect(reviewDecision(undated, 'approve', { stepDowns: [{ from: '2027-09-30', limit: 5.25 }] }).ok).toBe(true)
+        expect(reviewDecision(undated, 'approve', { stepDowns: [] }).ok).toBe(true)
+        expect(reviewDecision(undated, 'reject').ok).toBe(true)
     })
 
     it('leaves metricFormula out when the extraction had no terms', () => {
