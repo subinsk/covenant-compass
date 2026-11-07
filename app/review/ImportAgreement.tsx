@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui/core'
+import { Combobox } from '@/components/ui/Combobox'
 
 export type RunSummary = {
     id: string
@@ -17,9 +18,10 @@ export type RunSummary = {
 
 const POLL_MS = 4000
 
-export default function ImportAgreement({ facilities, runs }: { facilities: { id: string, name: string }[], runs: RunSummary[] }) {
+export default function ImportAgreement({ facilities, runs }: { facilities: { id: string, name: string, facilityReference: string }[], runs: RunSummary[] }) {
     const router = useRouter()
-    const [facilityId, setFacilityId] = useState(facilities[0]?.id ?? '')
+    // No default: picking the facility is deliberate, so an import can't land on the wrong one.
+    const [facilityId, setFacilityId] = useState('')
     const [url, setUrl] = useState('')
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -67,17 +69,18 @@ export default function ImportAgreement({ facilities, runs }: { facilities: { id
             </CardHeader>
             <CardContent className="space-y-4">
                 {facilities.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Add a facility first.</p>
+                    <p className="text-sm text-muted-foreground">Add an active facility first.</p>
                 ) : (
                     <form onSubmit={submit} className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <select
-                            aria-label="Facility"
-                            className="h-10 rounded-md border bg-background px-2 text-sm md:w-64"
-                            value={facilityId}
-                            onChange={(e) => setFacilityId(e.target.value)}
-                        >
-                            {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                        </select>
+                        <div className="shrink-0 md:w-80">
+                            <Combobox
+                                options={facilities.map((f) => ({ value: f.id, label: f.name, hint: f.facilityReference }))}
+                                value={facilityId}
+                                onChange={setFacilityId}
+                                placeholder="Choose a facility"
+                                searchPlaceholder="Search name or reference"
+                            />
+                        </div>
                         <Input
                             aria-label="Agreement URL"
                             type="url"

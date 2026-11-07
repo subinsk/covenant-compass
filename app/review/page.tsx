@@ -16,9 +16,10 @@ export default async function ReviewPage() {
     if (!session) redirect('/login')
     if (!isLender(session)) redirect('/portal')
 
+    // Only active facilities take new agreements.
     const facilities = await prisma.facility.findMany({
-        where: facilityScope(session),
-        select: { id: true, name: true },
+        where: { ...facilityScope(session), status: 'ACTIVE' },
+        select: { id: true, name: true, facilityReference: true },
         orderBy: { name: 'asc' },
     })
     await failStaleRuns(prisma, new Date(), { facility: facilityScope(session) })

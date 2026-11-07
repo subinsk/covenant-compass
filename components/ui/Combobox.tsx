@@ -5,7 +5,8 @@ import { Check, ChevronDown, Plus, Search } from 'lucide-react'
 import { cn } from '@/components/ui/core'
 
 // dot: optional colour class for a small leading dot, e.g. 'bg-red-500'.
-export type ComboboxOption = { value: string; label: string; dot?: string }
+// hint: optional muted second line, also matched by the search.
+export type ComboboxOption = { value: string; label: string; dot?: string; hint?: string }
 
 // A searchable select: a button that opens a filterable list. Arrow keys move,
 // Enter picks, Escape closes (without closing a surrounding modal). With
@@ -32,7 +33,7 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
 
     const selected = options.find(o => o.value === value)
     const q = query.trim().toLowerCase()
-    const filtered = q ? options.filter(o => o.label.toLowerCase().includes(q)) : options
+    const filtered = q ? options.filter(o => o.label.toLowerCase().includes(q) || o.hint?.toLowerCase().includes(q)) : options
     // The create action sits after the options, at index filtered.length.
     const createIndex = onCreate ? filtered.length : -1
     const lastIndex = filtered.length - 1 + (onCreate ? 1 : 0)
@@ -161,7 +162,10 @@ export function Combobox({ options, value, onChange, placeholder = 'Select…', 
                             >
                                 <span className="flex min-w-0 items-center gap-2">
                                     {option.dot && <span className={cn('h-2 w-2 shrink-0 rounded-full', option.dot)} />}
-                                    <span className="truncate">{option.label}</span>
+                                    <span className="min-w-0">
+                                        <span className="block truncate">{option.label}</span>
+                                        {option.hint && <span className="block truncate text-xs text-muted-foreground">{option.hint}</span>}
+                                    </span>
                                 </span>
                                 {option.value === value && <Check className="h-4 w-4 shrink-0 text-primary" />}
                             </li>
